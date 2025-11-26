@@ -1,6 +1,6 @@
 //
 //  HistoryView.swift
-//  SchedulizeSocial
+//  SchedalizeSocial
 //
 //  Created by Schedalize on 2025-11-26.
 //

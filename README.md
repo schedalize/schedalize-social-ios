@@ -15,7 +15,7 @@ iOS companion app for Schedalize Social - AI-powered social media reply generati
 - Swift 5.9+
 
 ## Setup
-1. Open `SchedulizeSocial.xcodeproj` in Xcode
+1. Open `SchedalizeSocial.xcodeproj` in Xcode
 2. Select your development team
 3. Build and run
 

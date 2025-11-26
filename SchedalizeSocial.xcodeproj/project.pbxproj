@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A1000001000000000000001 /* SchedulizeSocialApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000001 /* SchedulizeSocialApp.swift */; };
+		A1000001000000000000001 /* SchedalizeSocialApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000001 /* SchedalizeSocialApp.swift */; };
 		A1000003000000000000001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000004000000000000001 /* ContentView.swift */; };
 		A1000005000000000000001 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000006000000000000001 /* LoginView.swift */; };
 		A1000007000000000000001 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000008000000000000001 /* MainView.swift */; };
@@ -21,8 +21,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		A1000000000000000000001 /* SchedulizeSocial.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SchedulizeSocial.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		A1000002000000000000001 /* SchedulizeSocialApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchedulizeSocialApp.swift; sourceTree = "<group>"; };
+		A1000000000000000000001 /* SchedalizeSocial.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SchedalizeSocial.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1000002000000000000001 /* SchedalizeSocialApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchedalizeSocialApp.swift; sourceTree = "<group>"; };
 		A1000004000000000000001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A1000006000000000000001 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		A1000008000000000000001 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
@@ -49,28 +49,28 @@
 		A1FFFFFE000000000000001 = {
 			isa = PBXGroup;
 			children = (
-				A1000021000000000000001 /* SchedulizeSocial */,
+				A1000021000000000000001 /* SchedalizeSocial */,
 				A1000022000000000000001 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		A1000021000000000000001 /* SchedulizeSocial */ = {
+		A1000021000000000000001 /* SchedalizeSocial */ = {
 			isa = PBXGroup;
 			children = (
-				A1000002000000000000001 /* SchedulizeSocialApp.swift */,
+				A1000002000000000000001 /* SchedalizeSocialApp.swift */,
 				A1000023000000000000001 /* Views */,
 				A1000024000000000000001 /* Services */,
 				A1000025000000000000001 /* Models */,
 				A1000026000000000000002 /* Utils */,
 				A1000020000000000000001 /* Assets.xcassets */,
 			);
-			path = SchedulizeSocial;
+			path = SchedalizeSocial;
 			sourceTree = "<group>";
 		};
 		A1000022000000000000001 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				A1000000000000000000001 /* SchedulizeSocial.app */,
+				A1000000000000000000001 /* SchedalizeSocial.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -115,9 +115,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		A1FFFFFFD00000000000001 /* SchedulizeSocial */ = {
+		A1FFFFFFD00000000000001 /* SchedalizeSocial */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A1000026000000000000001 /* Build configuration list for PBXNativeTarget "SchedulizeSocial" */;
+			buildConfigurationList = A1000026000000000000001 /* Build configuration list for PBXNativeTarget "SchedalizeSocial" */;
 			buildPhases = (
 				A1FFFFFC000000000000001 /* Sources */,
 				A1FFFFFF000000000000001 /* Frameworks */,
@@ -127,9 +127,9 @@
 			);
 			dependencies = (
 			);
-			name = SchedulizeSocial;
-			productName = SchedulizeSocial;
-			productReference = A1000000000000000000001 /* SchedulizeSocial.app */;
+			name = SchedalizeSocial;
+			productName = SchedalizeSocial;
+			productReference = A1000000000000000000001 /* SchedalizeSocial.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -147,7 +147,7 @@
 					};
 				};
 			};
-			buildConfigurationList = A1000027000000000000001 /* Build configuration list for PBXProject "SchedulizeSocial" */;
+			buildConfigurationList = A1000027000000000000001 /* Build configuration list for PBXProject "SchedalizeSocial" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -160,7 +160,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				A1FFFFFFD00000000000001 /* SchedulizeSocial */,
+				A1FFFFFFD00000000000001 /* SchedalizeSocial */,
 			);
 		};
 /* End PBXProject section */
@@ -181,7 +181,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A1000001000000000000001 /* SchedulizeSocialApp.swift in Sources */,
+				A1000001000000000000001 /* SchedalizeSocialApp.swift in Sources */,
 				A1000003000000000000001 /* ContentView.swift in Sources */,
 				A1000005000000000000001 /* LoginView.swift in Sources */,
 				A1000007000000000000001 /* MainView.swift in Sources */,
@@ -379,7 +379,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A1000026000000000000001 /* Build configuration list for PBXNativeTarget "SchedulizeSocial" */ = {
+		A1000026000000000000001 /* Build configuration list for PBXNativeTarget "SchedalizeSocial" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A1000030000000000000001 /* Debug */,
@@ -388,7 +388,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A1000027000000000000001 /* Build configuration list for PBXProject "SchedulizeSocial" */ = {
+		A1000027000000000000001 /* Build configuration list for PBXProject "SchedalizeSocial" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A1000028000000000000001 /* Debug */,
