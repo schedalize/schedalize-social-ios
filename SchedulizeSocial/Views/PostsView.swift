@@ -192,8 +192,7 @@ struct PostCard: View {
             // Header
             HStack {
                 HStack(spacing: 6) {
-                    Image(systemName: platformIcon(post.platform))
-                        .font(.system(size: 12))
+                    platformIcon(post.platform)
                     Text(post.platform)
                         .font(.system(size: 12, weight: .medium))
                 }
@@ -241,12 +240,19 @@ struct PostCard: View {
         .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
     }
 
-    private func platformIcon(_ platform: String) -> String {
+    @ViewBuilder
+    private func platformIcon(_ platform: String) -> some View {
         switch platform {
-        case "Instagram": return "camera.fill"
-        case "TikTok": return "video.fill"
-        case "Email": return "envelope.fill"
-        default: return "bubble.left.fill"
+        case "Instagram":
+            InstagramIconView(color: Color(red: 0.29, green: 0.42, blue: 0.98), size: 12)
+        case "TikTok":
+            TikTokIconView(color: Color(red: 0.29, green: 0.42, blue: 0.98), size: 12)
+        case "Email":
+            Image(systemName: "envelope.fill")
+                .font(.system(size: 12))
+        default:
+            Image(systemName: "bubble.left.fill")
+                .font(.system(size: 12))
         }
     }
 

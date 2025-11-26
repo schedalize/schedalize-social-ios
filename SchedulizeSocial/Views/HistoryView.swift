@@ -103,8 +103,7 @@ struct HistoryItemCard: View {
             // Header with platform
             HStack {
                 HStack(spacing: 6) {
-                    Image(systemName: platformIcon(item.platform))
-                        .font(.system(size: 12))
+                    platformIcon(item.platform)
                     Text(item.platform.capitalized)
                         .font(.system(size: 12, weight: .medium))
                 }
@@ -173,12 +172,19 @@ struct HistoryItemCard: View {
         .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
     }
 
-    private func platformIcon(_ platform: String) -> String {
-        switch platform {
-        case "Instagram": return "camera.fill"
-        case "TikTok": return "video.fill"
-        case "Email": return "envelope.fill"
-        default: return "bubble.left.fill"
+    @ViewBuilder
+    private func platformIcon(_ platform: String) -> some View {
+        switch platform.lowercased() {
+        case "instagram":
+            InstagramIconView(color: Color(red: 0.29, green: 0.42, blue: 0.98), size: 12)
+        case "tiktok":
+            TikTokIconView(color: Color(red: 0.29, green: 0.42, blue: 0.98), size: 12)
+        case "email":
+            Image(systemName: "envelope.fill")
+                .font(.system(size: 12))
+        default:
+            Image(systemName: "bubble.left.fill")
+                .font(.system(size: 12))
         }
     }
 

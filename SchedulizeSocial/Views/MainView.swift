@@ -67,8 +67,7 @@ struct MainView: View {
                                 ForEach(platforms, id: \.self) { platform in
                                     Button(action: { selectedPlatform = platform }) {
                                         HStack(spacing: 8) {
-                                            Image(systemName: platformIcon(platform))
-                                                .font(.system(size: 16))
+                                            platformIcon(platform)
                                             Text(platform)
                                                 .font(.system(size: 14, weight: .medium))
                                         }
@@ -163,12 +162,19 @@ struct MainView: View {
         }
     }
 
-    private func platformIcon(_ platform: String) -> String {
+    @ViewBuilder
+    private func platformIcon(_ platform: String) -> some View {
         switch platform {
-        case "Instagram": return "camera.fill"
-        case "TikTok": return "video.fill"
-        case "Email": return "envelope.fill"
-        default: return "bubble.left.fill"
+        case "Instagram":
+            InstagramIconView(color: selectedPlatform == platform ? .white : Color(red: 0.13, green: 0.16, blue: 0.24), size: 16)
+        case "TikTok":
+            TikTokIconView(color: selectedPlatform == platform ? .white : Color(red: 0.13, green: 0.16, blue: 0.24), size: 16)
+        case "Email":
+            Image(systemName: "envelope.fill")
+                .font(.system(size: 16))
+        default:
+            Image(systemName: "bubble.left.fill")
+                .font(.system(size: 16))
         }
     }
 
