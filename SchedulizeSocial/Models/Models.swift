@@ -74,8 +74,11 @@ struct ScheduledPost: Codable, Identifiable {
     let post_id: String
     let content: String
     let platform: String
-    let scheduled_time: String
+    let scheduled_for: String
     let status: String
+    let topic: String?
+    let hashtags: [String]?
+    let tone: String?
     let created_at: String
 
     var id: String { post_id }
@@ -83,12 +86,22 @@ struct ScheduledPost: Codable, Identifiable {
 
 struct ScheduledPostsResponse: Codable {
     let posts: [ScheduledPost]
+    let count: Int
 }
 
 struct CreatePostRequest: Codable {
     let content: String
     let platform: String
-    let scheduled_time: String
+    let scheduled_for: String
+    let topic: String?
+    let hashtags: [String]?
+    let tone: String?
+}
+
+struct SchedulePostResponse: Codable {
+    let success: Bool
+    let post_id: String
+    let scheduled_for: String
 }
 
 // MARK: - Error Response

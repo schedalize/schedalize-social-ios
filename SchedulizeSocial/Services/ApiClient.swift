@@ -49,13 +49,13 @@ class ApiClient {
         return try await get(endpoint: "/api/v1/posts/scheduled", requiresAuth: true)
     }
 
-    func createScheduledPost(content: String, platform: String, scheduledTime: String) async throws {
-        let request = CreatePostRequest(content: content, platform: platform, scheduled_time: scheduledTime)
-        let _: EmptyResponse = try await post(endpoint: "/api/v1/posts/schedule", body: request, requiresAuth: true)
+    func createScheduledPost(content: String, platform: String, scheduledFor: String) async throws {
+        let request = CreatePostRequest(content: content, platform: platform, scheduled_for: scheduledFor, topic: nil, hashtags: nil, tone: nil)
+        let _: SchedulePostResponse = try await post(endpoint: "/api/v1/posts/schedule", body: request, requiresAuth: true)
     }
 
     func deleteScheduledPost(postId: String) async throws {
-        try await delete(endpoint: "/api/v1/posts/\(postId)", requiresAuth: true)
+        try await delete(endpoint: "/api/v1/posts/scheduled/\(postId)", requiresAuth: true)
     }
 
     // MARK: - Generic Network Methods

@@ -181,7 +181,7 @@ struct PostCard: View {
             HStack(spacing: 6) {
                 Image(systemName: "calendar")
                     .font(.system(size: 12))
-                Text("Scheduled: \(formatDate(post.scheduled_time))")
+                Text("Scheduled: \(formatDate(post.scheduled_for))")
                     .font(.system(size: 12))
             }
             .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
@@ -296,14 +296,14 @@ struct AddPostView: View {
         errorMessage = ""
 
         let formatter = ISO8601DateFormatter()
-        let scheduledTime = formatter.string(from: scheduledDate)
+        let scheduledFor = formatter.string(from: scheduledDate)
 
         Task {
             do {
                 try await ApiClient.shared.createScheduledPost(
                     content: content,
-                    platform: platform,
-                    scheduledTime: scheduledTime
+                    platform: platform.lowercased(),
+                    scheduledFor: scheduledFor
                 )
 
                 await MainActor.run {
