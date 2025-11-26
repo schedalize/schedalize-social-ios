@@ -16,8 +16,29 @@ struct MainView: View {
     @State private var isLoading = false
     @State private var errorMessage = ""
     @State private var showError = false
+    @State private var includeEmojis = true
 
     let platforms = ["Instagram", "TikTok", "Email"]
+
+    // Quick Templates - same as Android app
+    let quickTemplates: [(label: String, prompt: String)] = [
+        // Positive/Neutral scenarios
+        ("Thank You", "Customer says: Thanks for the info!\nGenerate a warm follow-up reply"),
+        ("Great Question", "Customer asks: What services do you offer?\nGenerate an informative reply"),
+        ("Happy to Help", "Customer says: I need help with my booking\nGenerate a helpful reply"),
+        ("Book Now", "Customer says: I want to book an appointment\nGenerate a reply with booking instructions"),
+        ("Pricing", "Customer asks: How much do your services cost?\nGenerate a reply about pricing"),
+        ("Availability", "Customer asks: When are you available?\nGenerate a reply about availability"),
+        // Negative/Difficult scenarios
+        ("Complaint", "Customer says: I'm really frustrated with the service I received. This was not what I expected!\nGenerate a professional, empathetic reply that acknowledges their concern"),
+        ("Refund", "Customer says: I want my money back. The service was not satisfactory.\nGenerate a calm, professional reply addressing their refund request"),
+        ("Unhappy", "Customer says: I'm very disappointed. This is unacceptable.\nGenerate an empathetic reply that shows you care and want to make it right"),
+        ("Delay", "Customer says: Why is this taking so long? I've been waiting forever!\nGenerate an apologetic reply explaining the delay professionally"),
+        ("Cancel", "Customer says: I need to cancel my appointment/order.\nGenerate a polite reply handling the cancellation gracefully"),
+        ("Negative Review", "Customer left a negative review: Poor experience, would not recommend.\nGenerate a professional public response that addresses concerns and invites them to discuss further")
+    ]
+
+    @State private var templatesExpanded = false
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -39,11 +60,62 @@ struct MainView: View {
                         .padding(.horizontal, 20)
                         .padding(.top, 20)
 
+                        // Quick Templates Section
+                        VStack(alignment: .leading, spacing: 8) {
+                            Button(action: { withAnimation { templatesExpanded.toggle() } }) {
+                                HStack {
+                                    Text("Quick Templates")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
+                                    Spacer()
+                                    Image(systemName: templatesExpanded ? "chevron.up" : "chevron.down")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
+                                }
+                            }
+
+                            if templatesExpanded {
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        ForEach(quickTemplates, id: \.label) { template in
+                                            Button(action: {
+                                                message = template.prompt
+                                                withAnimation { templatesExpanded = false }
+                                            }) {
+                                                Text(template.label)
+                                                    .font(.system(size: 13, weight: .medium))
+                                                    .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
+                                                    .padding(.horizontal, 12)
+                                                    .padding(.vertical, 8)
+                                                    .background(Color(red: 0.29, green: 0.42, blue: 0.98).opacity(0.1))
+                                                    .cornerRadius(16)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 20)
+
                         // Message Input
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Message")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
+                            HStack {
+                                Text("Message")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
+                                Spacer()
+                                if !message.isEmpty {
+                                    Button(action: { message = "" }) {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "xmark.circle.fill")
+                                                .font(.system(size: 14))
+                                            Text("Clear")
+                                                .font(.system(size: 13, weight: .medium))
+                                        }
+                                        .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
+                                    }
+                                }
+                            }
 
                             TextEditor(text: $message)
                                 .frame(height: 120)
@@ -84,6 +156,21 @@ struct MainView: View {
                                     }
                                 }
                             }
+                        }
+                        .padding(.horizontal, 20)
+
+                        // Include Emoji Toggle
+                        HStack {
+                            Image(systemName: "face.smiling")
+                                .font(.system(size: 18))
+                                .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
+                            Text("Include Emojis")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
+                            Spacer()
+                            Toggle("", isOn: $includeEmojis)
+                                .labelsHidden()
+                                .tint(Color(red: 0.29, green: 0.42, blue: 0.98))
                         }
                         .padding(.horizontal, 20)
 
@@ -187,7 +274,7 @@ struct MainView: View {
                 let response = try await ApiClient.shared.generateReplies(
                     message: message,
                     platform: selectedPlatform.lowercased(),
-                    includeEmojis: true
+                    includeEmojis: includeEmojis
                 )
 
                 await MainActor.run {
