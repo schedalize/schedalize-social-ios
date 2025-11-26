@@ -25,37 +25,37 @@ class ApiClient {
     // MARK: - Authentication
     func login(email: String, password: String) async throws -> AuthResponse {
         let request = LoginRequest(email: email, password: password)
-        return try await post(endpoint: "/auth/login", body: request)
+        return try await post(endpoint: "/api/v1/auth/login", body: request)
     }
 
     func signup(email: String, password: String, fullName: String) async throws -> AuthResponse {
-        let request = SignupRequest(email: email, password: password, full_name: fullName)
-        return try await post(endpoint: "/auth/signup", body: request)
+        let request = SignupRequest(email: email, password: password, name: fullName)
+        return try await post(endpoint: "/api/v1/auth/signup", body: request)
     }
 
     // MARK: - Reply Generation
     func generateReplies(message: String, context: String?, platform: String, tones: [String]) async throws -> GenerateReplyResponse {
         let request = GenerateReplyRequest(message: message, context: context, platform: platform, tones: tones)
-        return try await post(endpoint: "/replies/generate", body: request, requiresAuth: true)
+        return try await post(endpoint: "/api/v1/replies/generate", body: request, requiresAuth: true)
     }
 
     // MARK: - History
     func getHistory() async throws -> HistoryResponse {
-        return try await get(endpoint: "/replies/history", requiresAuth: true)
+        return try await get(endpoint: "/api/v1/replies/history", requiresAuth: true)
     }
 
     // MARK: - Scheduled Posts
     func getScheduledPosts() async throws -> ScheduledPostsResponse {
-        return try await get(endpoint: "/posts/scheduled", requiresAuth: true)
+        return try await get(endpoint: "/api/v1/posts/scheduled", requiresAuth: true)
     }
 
     func createScheduledPost(content: String, platform: String, scheduledTime: String) async throws {
         let request = CreatePostRequest(content: content, platform: platform, scheduled_time: scheduledTime)
-        let _: EmptyResponse = try await post(endpoint: "/posts/schedule", body: request, requiresAuth: true)
+        let _: EmptyResponse = try await post(endpoint: "/api/v1/posts/schedule", body: request, requiresAuth: true)
     }
 
     func deleteScheduledPost(postId: String) async throws {
-        try await delete(endpoint: "/posts/\(postId)", requiresAuth: true)
+        try await delete(endpoint: "/api/v1/posts/\(postId)", requiresAuth: true)
     }
 
     // MARK: - Generic Network Methods

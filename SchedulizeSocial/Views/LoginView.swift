@@ -125,7 +125,7 @@ struct LoginView: View {
                 }
 
                 await MainActor.run {
-                    TokenManager.shared.saveToken(response.token)
+                    TokenManager.shared.saveToken(response.access_token)
                     TokenManager.shared.saveUser(response.user)
                     isLoggedIn = true
                 }

@@ -16,19 +16,19 @@ struct LoginRequest: Codable {
 struct SignupRequest: Codable {
     let email: String
     let password: String
-    let full_name: String
+    let name: String
 }
 
 struct AuthResponse: Codable {
-    let token: String
+    let access_token: String
+    let refresh_token: String
     let user: User
 }
 
 struct User: Codable {
     let user_id: String
     let email: String
-    let full_name: String
-    let created_at: String
+    let name: String?
 }
 
 // MARK: - Reply Generation Models
