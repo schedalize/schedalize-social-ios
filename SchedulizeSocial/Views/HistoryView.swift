@@ -71,7 +71,7 @@ struct HistoryView: View {
         do {
             let response = try await ApiClient.shared.getHistory()
             await MainActor.run {
-                historyItems = response.history
+                historyItems = response.replies
                 isLoading = false
             }
         } catch let error as APIError {
@@ -100,12 +100,12 @@ struct HistoryItemCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Header with platform and tone
+            // Header with platform
             HStack {
                 HStack(spacing: 6) {
                     Image(systemName: platformIcon(item.platform))
                         .font(.system(size: 12))
-                    Text(item.platform)
+                    Text(item.platform.capitalized)
                         .font(.system(size: 12, weight: .medium))
                 }
                 .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
@@ -113,14 +113,6 @@ struct HistoryItemCard: View {
                 .padding(.vertical, 6)
                 .background(Color(red: 0.29, green: 0.42, blue: 0.98).opacity(0.1))
                 .cornerRadius(6)
-
-                Text(item.tone.capitalized)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color(red: 0.89, green: 0.90, blue: 0.92))
-                    .cornerRadius(6)
 
                 Spacer()
 
@@ -138,30 +130,41 @@ struct HistoryItemCard: View {
                 Text(item.original_message)
                     .font(.system(size: 14))
                     .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
-                    .lineLimit(2)
+                    .lineLimit(3)
             }
 
             Divider()
 
-            // Generated Reply
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text("Generated Reply")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
+            // Generated Replies
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Generated Replies")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
 
-                    Spacer()
+                ForEach(item.generated_replies) { reply in
+                    HStack(alignment: .top, spacing: 8) {
+                        Text(reply.tone.capitalized)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color(red: 0.29, green: 0.42, blue: 0.98).opacity(0.1))
+                            .cornerRadius(4)
 
-                    Button(action: { copyToClipboard(item.generated_reply) }) {
-                        Image(systemName: "doc.on.doc")
-                            .font(.system(size: 14))
-                            .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
+                        Text(reply.text)
+                            .font(.system(size: 13))
+                            .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
+                            .lineLimit(2)
+
+                        Spacer()
+
+                        Button(action: { copyToClipboard(reply.text) }) {
+                            Image(systemName: "doc.on.doc")
+                                .font(.system(size: 12))
+                                .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
+                        }
                     }
                 }
-
-                Text(item.generated_reply)
-                    .font(.system(size: 14))
-                    .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
             }
         }
         .padding(16)

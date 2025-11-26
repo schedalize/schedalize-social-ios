@@ -34,8 +34,8 @@ class ApiClient {
     }
 
     // MARK: - Reply Generation
-    func generateReplies(message: String, context: String?, platform: String, tones: [String]) async throws -> GenerateReplyResponse {
-        let request = GenerateReplyRequest(message: message, context: context, platform: platform, tones: tones)
+    func generateReplies(message: String, platform: String, includeEmojis: Bool = true) async throws -> GenerateReplyResponse {
+        let request = GenerateReplyRequest(message: message, platform: platform, sender_info: nil, include_emojis: includeEmojis)
         return try await post(endpoint: "/api/v1/replies/generate", body: request, requiresAuth: true)
     }
 

@@ -11,16 +11,13 @@ struct MainView: View {
     @Binding var isLoggedIn: Bool
     @State private var selectedTab = 0
     @State private var message = ""
-    @State private var context = ""
     @State private var selectedPlatform = "Instagram"
-    @State private var selectedTones: Set<String> = ["friendly"]
     @State private var generatedReplies: [GeneratedReply] = []
     @State private var isLoading = false
     @State private var errorMessage = ""
     @State private var showError = false
 
     let platforms = ["Instagram", "TikTok", "Email"]
-    let availableTones = ["friendly", "professional", "brief"]
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -50,24 +47,6 @@ struct MainView: View {
 
                             TextEditor(text: $message)
                                 .frame(height: 120)
-                                .padding(12)
-                                .background(Color.white)
-                                .cornerRadius(12)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color(red: 0.89, green: 0.90, blue: 0.92), lineWidth: 1)
-                                )
-                        }
-                        .padding(.horizontal, 20)
-
-                        // Context Input
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Context (Optional)")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
-
-                            TextEditor(text: $context)
-                                .frame(height: 80)
                                 .padding(12)
                                 .background(Color.white)
                                 .cornerRadius(12)
@@ -109,33 +88,6 @@ struct MainView: View {
                         }
                         .padding(.horizontal, 20)
 
-                        // Tone Selection
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Reply Tones")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
-
-                            HStack(spacing: 12) {
-                                ForEach(availableTones, id: \.self) { tone in
-                                    Button(action: { toggleTone(tone) }) {
-                                        Text(tone.capitalized)
-                                            .font(.system(size: 14, weight: .medium))
-                                            .padding(.horizontal, 16)
-                                            .padding(.vertical, 10)
-                                            .background(selectedTones.contains(tone) ?
-                                                       Color(red: 0.29, green: 0.42, blue: 0.98) : Color.white)
-                                            .foregroundColor(selectedTones.contains(tone) ? .white : Color(red: 0.13, green: 0.16, blue: 0.24))
-                                            .cornerRadius(8)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 8)
-                                                    .stroke(selectedTones.contains(tone) ? Color.clear : Color(red: 0.89, green: 0.90, blue: 0.92), lineWidth: 1)
-                                            )
-                                    }
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 20)
-
                         // Generate Button
                         Button(action: generateReplies) {
                             if isLoading {
@@ -153,8 +105,8 @@ struct MainView: View {
                         }
                         .background(Color(red: 0.29, green: 0.42, blue: 0.98))
                         .cornerRadius(12)
-                        .disabled(isLoading || message.isEmpty || selectedTones.isEmpty)
-                        .opacity(message.isEmpty || selectedTones.isEmpty ? 0.6 : 1.0)
+                        .disabled(isLoading || message.isEmpty)
+                        .opacity(message.isEmpty ? 0.6 : 1.0)
                         .padding(.horizontal, 20)
 
                         // Generated Replies
@@ -220,14 +172,6 @@ struct MainView: View {
         }
     }
 
-    private func toggleTone(_ tone: String) {
-        if selectedTones.contains(tone) {
-            selectedTones.remove(tone)
-        } else {
-            selectedTones.insert(tone)
-        }
-    }
-
     private func generateReplies() {
         isLoading = true
         errorMessage = ""
@@ -236,9 +180,8 @@ struct MainView: View {
             do {
                 let response = try await ApiClient.shared.generateReplies(
                     message: message,
-                    context: context.isEmpty ? nil : context,
-                    platform: selectedPlatform,
-                    tones: Array(selectedTones)
+                    platform: selectedPlatform.lowercased(),
+                    includeEmojis: true
                 )
 
                 await MainActor.run {

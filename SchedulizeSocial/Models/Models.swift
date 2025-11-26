@@ -34,9 +34,9 @@ struct User: Codable {
 // MARK: - Reply Generation Models
 struct GenerateReplyRequest: Codable {
     let message: String
-    let context: String?
     let platform: String
-    let tones: [String]
+    let sender_info: String?
+    let include_emojis: Bool?
 }
 
 struct GeneratedReply: Codable, Identifiable {
@@ -53,16 +53,20 @@ struct GenerateReplyResponse: Codable {
 struct HistoryItem: Codable, Identifiable {
     let reply_id: String
     let original_message: String
-    let generated_reply: String
-    let tone: String
+    let generated_replies: [GeneratedReply]
     let platform: String
+    let detected_intent: String?
+    let is_favorite: Bool?
+    let favorite_tones: [String]?
+    let selected_reply: String?
     let created_at: String
 
     var id: String { reply_id }
 }
 
 struct HistoryResponse: Codable {
-    let history: [HistoryItem]
+    let replies: [HistoryItem]
+    let count: Int
 }
 
 // MARK: - Scheduled Posts Models
