@@ -13,54 +13,88 @@ struct PostsView: View {
     @State private var showAddPost = false
     @State private var errorMessage = ""
     @State private var showError = false
+    @State private var currentMonth = Date()
+    @State private var selectedDate: Date?
 
     var body: some View {
         NavigationView {
-            ZStack {
-                Color(red: 0.96, green: 0.97, blue: 0.98)
-                    .ignoresSafeArea()
+            VStack(spacing: 0) {
+                // Calendar Header
+                CalendarHeaderView(currentMonth: $currentMonth)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
+                    .background(Color.white)
 
                 if isLoading {
+                    Spacer()
                     ProgressView()
-                } else if scheduledPosts.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "calendar")
-                            .font(.system(size: 60))
-                            .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55).opacity(0.5))
-
-                        Text("No scheduled posts")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
-
-                        Text("Schedule posts to publish later")
-                            .font(.system(size: 14))
-                            .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55).opacity(0.7))
-                            .multilineTextAlignment(.center)
-
-                        Button(action: { showAddPost = true }) {
-                            Text("Add Post")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 32)
-                                .padding(.vertical, 12)
-                                .background(Color(red: 0.29, green: 0.42, blue: 0.98))
-                                .cornerRadius(12)
-                        }
-                        .padding(.top, 20)
-                    }
-                    .padding(40)
+                    Spacer()
                 } else {
                     ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(scheduledPosts) { post in
-                                PostCard(post: post, onDelete: { deletePost(post.post_id) })
+                        VStack(spacing: 20) {
+                            // Calendar Grid
+                            CalendarGridView(
+                                currentMonth: currentMonth,
+                                scheduledPosts: scheduledPosts,
+                                selectedDate: $selectedDate
+                            )
+                            .padding(.horizontal, 20)
+                            .padding(.top, 20)
+
+                            // Posts for selected date or all upcoming
+                            if let selected = selectedDate {
+                                let postsForDate = postsForDate(selected)
+                                if !postsForDate.isEmpty {
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        Text("Posts on \(formatDateHeader(selected))")
+                                            .font(.system(size: 18, weight: .bold))
+                                            .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
+                                            .padding(.horizontal, 20)
+
+                                        ForEach(postsForDate) { post in
+                                            PostCard(post: post, onDelete: { deletePost(post.post_id) })
+                                                .padding(.horizontal, 20)
+                                        }
+                                    }
+                                }
+                            } else if !scheduledPosts.isEmpty {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text("Upcoming Posts")
+                                        .font(.system(size: 18, weight: .bold))
+                                        .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
+                                        .padding(.horizontal, 20)
+
+                                    ForEach(scheduledPosts.prefix(5)) { post in
+                                        PostCard(post: post, onDelete: { deletePost(post.post_id) })
+                                            .padding(.horizontal, 20)
+                                    }
+                                }
+                            }
+
+                            if scheduledPosts.isEmpty {
+                                VStack(spacing: 16) {
+                                    Image(systemName: "calendar")
+                                        .font(.system(size: 60))
+                                        .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55).opacity(0.5))
+
+                                    Text("No scheduled posts")
+                                        .font(.system(size: 18, weight: .semibold))
+                                        .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
+
+                                    Text("Schedule posts to publish later")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55).opacity(0.7))
+                                        .multilineTextAlignment(.center)
+                                }
+                                .padding(40)
                             }
                         }
-                        .padding(20)
+                        .padding(.bottom, 20)
                     }
                 }
             }
-            .navigationTitle("Scheduled Posts")
+            .background(Color(red: 0.96, green: 0.97, blue: 0.98))
+            .navigationTitle("Calendar")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -87,6 +121,21 @@ struct PostsView: View {
                 Text(errorMessage)
             }
         }
+    }
+
+    private func postsForDate(_ date: Date) -> [ScheduledPost] {
+        scheduledPosts.filter { post in
+            guard let postDate = ISO8601DateFormatter().date(from: post.scheduled_for) else {
+                return false
+            }
+            return Calendar.current.isDate(postDate, inSameDayAs: date)
+        }
+    }
+
+    private func formatDateHeader(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: date)
     }
 
     private func loadPosts() async {
@@ -328,6 +377,178 @@ struct AddPostView: View {
                     isLoading = false
                 }
             }
+        }
+    }
+}
+
+// MARK: - Calendar Components
+
+struct CalendarHeaderView: View {
+    @Binding var currentMonth: Date
+
+    var body: some View {
+        HStack {
+            Button(action: previousMonth) {
+                Image(systemName: "chevron.left")
+                    .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
+                    .font(.system(size: 20, weight: .semibold))
+            }
+
+            Spacer()
+
+            Text(monthYearString)
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
+
+            Spacer()
+
+            Button(action: nextMonth) {
+                Image(systemName: "chevron.right")
+                    .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
+                    .font(.system(size: 20, weight: .semibold))
+            }
+        }
+    }
+
+    private var monthYearString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        return formatter.string(from: currentMonth)
+    }
+
+    private func previousMonth() {
+        currentMonth = Calendar.current.date(byAdding: .month, value: -1, to: currentMonth) ?? currentMonth
+    }
+
+    private func nextMonth() {
+        currentMonth = Calendar.current.date(byAdding: .month, value: 1, to: currentMonth) ?? currentMonth
+    }
+}
+
+struct CalendarGridView: View {
+    let currentMonth: Date
+    let scheduledPosts: [ScheduledPost]
+    @Binding var selectedDate: Date?
+
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
+    private let weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
+    var body: some View {
+        VStack(spacing: 12) {
+            // Week day headers
+            LazyVGrid(columns: columns, spacing: 8) {
+                ForEach(weekDays, id: \.self) { day in
+                    Text(day)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
+                        .frame(maxWidth: .infinity)
+                }
+            }
+
+            // Calendar days
+            LazyVGrid(columns: columns, spacing: 8) {
+                ForEach(daysInMonth, id: \.self) { date in
+                    if let date = date {
+                        CalendarDayView(
+                            date: date,
+                            isSelected: selectedDate != nil && Calendar.current.isDate(date, inSameDayAs: selectedDate!),
+                            isToday: Calendar.current.isDateInToday(date),
+                            hasPost: hasPostOnDate(date),
+                            onTap: { selectedDate = date }
+                        )
+                    } else {
+                        Color.clear
+                            .frame(height: 44)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.white)
+        .cornerRadius(12)
+    }
+
+    private var daysInMonth: [Date?] {
+        guard let monthInterval = Calendar.current.dateInterval(of: .month, for: currentMonth),
+              let monthFirstWeek = Calendar.current.dateInterval(of: .weekOfMonth, for: monthInterval.start) else {
+            return []
+        }
+
+        var days: [Date?] = []
+        var date = monthFirstWeek.start
+
+        while days.count < 42 { // 6 weeks
+            if Calendar.current.isDate(date, equalTo: currentMonth, toGranularity: .month) {
+                days.append(date)
+            } else {
+                days.append(nil)
+            }
+            date = Calendar.current.date(byAdding: .day, value: 1, to: date) ?? date
+        }
+
+        return days
+    }
+
+    private func hasPostOnDate(_ date: Date) -> Bool {
+        scheduledPosts.contains { post in
+            guard let postDate = ISO8601DateFormatter().date(from: post.scheduled_for) else {
+                return false
+            }
+            return Calendar.current.isDate(postDate, inSameDayAs: date)
+        }
+    }
+}
+
+struct CalendarDayView: View {
+    let date: Date
+    let isSelected: Bool
+    let isToday: Bool
+    let hasPost: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 4) {
+                Text("\(Calendar.current.component(.day, from: date))")
+                    .font(.system(size: 16, weight: isToday ? .bold : .regular))
+                    .foregroundColor(foregroundColor)
+
+                if hasPost {
+                    Circle()
+                        .fill(Color(red: 0.29, green: 0.42, blue: 0.98))
+                        .frame(width: 6, height: 6)
+                } else {
+                    Circle()
+                        .fill(Color.clear)
+                        .frame(width: 6, height: 6)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 44)
+            .background(backgroundColor)
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(isToday ? Color(red: 0.29, green: 0.42, blue: 0.98) : Color.clear, lineWidth: 2)
+            )
+        }
+    }
+
+    private var backgroundColor: Color {
+        if isSelected {
+            return Color(red: 0.29, green: 0.42, blue: 0.98)
+        } else {
+            return Color(red: 0.96, green: 0.97, blue: 0.98)
+        }
+    }
+
+    private var foregroundColor: Color {
+        if isSelected {
+            return .white
+        } else if isToday {
+            return Color(red: 0.29, green: 0.42, blue: 0.98)
+        } else {
+            return Color(red: 0.13, green: 0.16, blue: 0.24)
         }
     }
 }
