@@ -8,7 +8,6 @@
 import SwiftUI
 
 struct MainView: View {
-    @Binding var isLoggedIn: Bool
     @State private var selectedTab = 0
     @State private var message = ""
     @State private var selectedPlatform = "Instagram"
@@ -213,7 +212,6 @@ struct MainView: View {
                     .padding(.bottom, 20)
                 }
                 .background(Color(red: 0.96, green: 0.97, blue: 0.98))
-                .navigationBarItems(trailing: logoutButton)
             }
             .tabItem {
                 Label("Replies", systemImage: "bubble.left.and.bubble.right.fill")
@@ -239,13 +237,6 @@ struct MainView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(errorMessage)
-        }
-    }
-
-    private var logoutButton: some View {
-        Button(action: logout) {
-            Image(systemName: "rectangle.portrait.and.arrow.right")
-                .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
         }
     }
 
@@ -284,8 +275,6 @@ struct MainView: View {
             } catch let error as APIError {
                 await MainActor.run {
                     switch error {
-                    case .unauthorized:
-                        logout()
                     case .serverError(let message):
                         errorMessage = message
                         showError = true
@@ -303,11 +292,6 @@ struct MainView: View {
                 }
             }
         }
-    }
-
-    private func logout() {
-        TokenManager.shared.clearToken()
-        isLoggedIn = false
     }
 }
 
@@ -351,5 +335,5 @@ struct ReplyCard: View {
 }
 
 #Preview {
-    MainView(isLoggedIn: .constant(true))
+    MainView()
 }

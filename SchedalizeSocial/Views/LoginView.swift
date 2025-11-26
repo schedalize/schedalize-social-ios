@@ -11,8 +11,6 @@ struct LoginView: View {
     @Binding var isLoggedIn: Bool
     @State private var email = ""
     @State private var password = ""
-    @State private var fullName = ""
-    @State private var isSignupMode = false
     @State private var isLoading = false
     @State private var errorMessage = ""
     @State private var showError = false
@@ -34,7 +32,7 @@ struct LoginView: View {
                             .font(.system(size: 28, weight: .bold))
                             .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
 
-                        Text(isSignupMode ? "Create your account" : "Welcome back")
+                        Text("Welcome back")
                             .font(.system(size: 16))
                             .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
                     }
@@ -42,12 +40,6 @@ struct LoginView: View {
 
                     // Form Section
                     VStack(spacing: 16) {
-                        if isSignupMode {
-                            TextField("Full Name", text: $fullName)
-                                .textFieldStyle(CustomTextFieldStyle())
-                                .autocapitalization(.words)
-                        }
-
                         TextField("Email", text: $email)
                             .textFieldStyle(CustomTextFieldStyle())
                             .autocapitalization(.none)
@@ -59,14 +51,14 @@ struct LoginView: View {
                     .padding(.horizontal, 24)
 
                     // Action Button
-                    Button(action: handleAuth) {
+                    Button(action: handleLogin) {
                         if isLoading {
                             ProgressView()
                                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 50)
                         } else {
-                            Text(isSignupMode ? "Sign Up" : "Log In")
+                            Text("Log In")
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
@@ -78,19 +70,6 @@ struct LoginView: View {
                     .disabled(isLoading || !isFormValid)
                     .opacity(isFormValid ? 1.0 : 0.6)
                     .padding(.horizontal, 24)
-
-                    // Toggle Mode Button
-                    Button(action: { isSignupMode.toggle() }) {
-                        HStack(spacing: 4) {
-                            Text(isSignupMode ? "Already have an account?" : "Don't have an account?")
-                                .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
-                            Text(isSignupMode ? "Log In" : "Sign Up")
-                                .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
-                                .fontWeight(.semibold)
-                        }
-                        .font(.system(size: 14))
-                    }
-                    .disabled(isLoading)
 
                     Spacer()
                 }
@@ -104,25 +83,16 @@ struct LoginView: View {
     }
 
     private var isFormValid: Bool {
-        if isSignupMode {
-            return !email.isEmpty && !password.isEmpty && !fullName.isEmpty && password.count >= 6
-        } else {
-            return !email.isEmpty && !password.isEmpty
-        }
+        return !email.isEmpty && !password.isEmpty
     }
 
-    private func handleAuth() {
+    private func handleLogin() {
         isLoading = true
         errorMessage = ""
 
         Task {
             do {
-                let response: AuthResponse
-                if isSignupMode {
-                    response = try await ApiClient.shared.signup(email: email, password: password, fullName: fullName)
-                } else {
-                    response = try await ApiClient.shared.login(email: email, password: password)
-                }
+                let response = try await ApiClient.shared.login(email: email, password: password)
 
                 await MainActor.run {
                     TokenManager.shared.saveToken(response.access_token)

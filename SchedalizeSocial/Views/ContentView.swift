@@ -13,7 +13,7 @@ struct ContentView: View {
     var body: some View {
         Group {
             if isLoggedIn {
-                MainView(isLoggedIn: $isLoggedIn)
+                MainView()
             } else {
                 LoginView(isLoggedIn: $isLoggedIn)
             }
