@@ -506,6 +506,28 @@ struct UnifiedHistoryItem: Identifiable {
     }
 }
 
+// MARK: - Docs
+struct Doc: Codable, Identifiable {
+    let doc_id: String
+    let user_id: String?
+    let title: String
+    let category: String?
+    let content: String
+    let created_at: String
+    let updated_at: String
+
+    var id: String { doc_id }
+}
+
+struct DocsResponse: Codable {
+    let docs: [Doc]
+    let count: Int
+}
+
+struct DocResponse: Codable {
+    let doc: Doc
+}
+
 // MARK: - Error Response
 struct ErrorResponse: Codable {
     let error: String

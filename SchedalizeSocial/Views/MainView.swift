@@ -231,6 +231,13 @@ struct MainView: View {
                     Label("Schedule", systemImage: "calendar")
                 }
                 .tag(3)
+
+            // Docs Tab
+            DocsView()
+                .tabItem {
+                    Label("Docs", systemImage: "doc.text")
+                }
+                .tag(4)
         }
         .accentColor(Color(red: 0.29, green: 0.42, blue: 0.98))
         .alert("Error", isPresented: $showError) {

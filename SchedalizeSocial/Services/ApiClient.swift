@@ -217,6 +217,19 @@ class ApiClient {
             throw APIError.networkError(error)
         }
     }
+
+    // MARK: - Docs
+    func getDocs(category: String? = nil) async throws -> DocsResponse {
+        var endpoint = "/api/v1/docs"
+        if let category = category {
+            endpoint += "?category=\(category)"
+        }
+        return try await get(endpoint: endpoint, requiresAuth: true)
+    }
+
+    func getDoc(docId: String) async throws -> DocResponse {
+        return try await get(endpoint: "/api/v1/docs/\(docId)", requiresAuth: true)
+    }
 }
 
 // Empty response for endpoints that don't return data
