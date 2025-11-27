@@ -225,11 +225,17 @@ struct FilterTag: View {
 struct UnifiedHistoryCard: View {
     let item: UnifiedHistoryItem
     @State private var showCopied = false
-    @State private var showPostedMenu = false
-    @State private var postedDate = Date()
-    @State private var postedPlatform = "instagram"
+    @State private var selectedPostedPlatform: String? = nil
 
     private let platforms = ["instagram", "tiktok", "twitter", "email"]
+
+    private var isPosted: Bool {
+        selectedPostedPlatform != nil || item.postedAt != nil
+    }
+
+    private var displayPostedPlatform: String? {
+        selectedPostedPlatform ?? item.postedPlatform
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -321,17 +327,12 @@ struct UnifiedHistoryCard: View {
             }
 
             // Posted badge
-            if let postedAt = item.postedAt {
+            if isPosted, let platform = displayPostedPlatform {
                 HStack(spacing: 4) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 11))
-                        .foregroundColor(.green)
-                    Text("Posted \(formatDate(postedAt))")
+                    Text("Posted on \(platform.capitalized)")
                         .font(.system(size: 11, weight: .medium))
-                    if let platform = item.postedPlatform {
-                        Text("on \(platform.capitalized)")
-                            .font(.system(size: 11))
-                    }
                 }
                 .foregroundColor(.green)
                 .padding(.horizontal, 10)
@@ -360,34 +361,46 @@ struct UnifiedHistoryCard: View {
 
                 Spacer()
 
-                // Mark as Posted button
+                // Mark as Posted menu
                 Menu {
                     Section("Mark as Posted") {
                         ForEach(platforms, id: \.self) { platform in
                             Button(action: {
-                                markAsPosted(platform: platform)
+                                selectedPostedPlatform = platform
                             }) {
-                                Label(platform.capitalized, systemImage: platformIconName(platform))
+                                HStack {
+                                    Text(platform.capitalized)
+                                    Spacer()
+                                    if selectedPostedPlatform == platform {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
                             }
                         }
                     }
+
+                    Divider()
+
+                    Button(role: .destructive, action: {
+                        selectedPostedPlatform = nil
+                    }) {
+                        Label("Not Posted", systemImage: "xmark.circle")
+                    }
                 } label: {
-                    Label("Posted", systemImage: "checkmark.circle")
-                        .font(.system(size: 12, weight: .medium))
+                    Label(
+                        isPosted ? "Posted" : "Mark Posted",
+                        systemImage: isPosted ? "checkmark.circle.fill" : "checkmark.circle"
+                    )
+                    .font(.system(size: 12, weight: .medium))
                 }
                 .buttonStyle(.bordered)
-                .tint(Color(red: 0.0, green: 0.7, blue: 0.4))
+                .tint(isPosted ? .green : Color(red: 0.42, green: 0.47, blue: 0.55))
             }
         }
         .padding(16)
         .background(Color.white)
         .cornerRadius(12)
         .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
-    }
-
-    private func markAsPosted(platform: String) {
-        // TODO: Call API to mark as posted
-        print("[History] Mark as posted on \(platform)")
     }
 
     @ViewBuilder
