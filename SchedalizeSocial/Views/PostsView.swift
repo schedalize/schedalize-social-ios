@@ -328,36 +328,31 @@ struct AddPostView: View {
     @State private var prompts: [Prompt] = []
     @State private var selectedPrompt: Prompt?
     @State private var selectedMood = "focused"
-    @State private var selectedLength = "normal"
     @State private var useEmojis = true
     @State private var showCopied = false
+    @State private var showAdvancedSettings = false
 
     let platforms = ["Instagram", "TikTok", "Email"]
     let moods = ["excited", "tired", "focused", "grateful", "frustrated"]
-    let lengths = ["brief", "normal", "long"]
     let initialDate: Date
     let onSave: () -> Void
 
     init(initialDate: Date = Date(), onSave: @escaping () -> Void) {
         self.initialDate = initialDate
         self.onSave = onSave
-        // Set the initial scheduled date at 12:00 PM (noon)
         let calendar = Calendar.current
         var dateToUse = initialDate
 
-        // If date is in the past, use today
         if calendar.startOfDay(for: initialDate) < calendar.startOfDay(for: Date()) {
             dateToUse = Date()
         }
 
-        // Set time to 12:00 PM
         var components = calendar.dateComponents([.year, .month, .day], from: dateToUse)
         components.hour = 12
         components.minute = 0
         components.second = 0
         let noonDate = calendar.date(from: components) ?? dateToUse
 
-        // If noon has already passed today, use tomorrow at noon
         let finalDate: Date
         if noonDate <= Date() {
             finalDate = calendar.date(byAdding: .day, value: 1, to: noonDate) ?? noonDate
@@ -368,151 +363,201 @@ struct AddPostView: View {
         _scheduledDate = State(initialValue: finalDate)
     }
 
+    private var currentSettingsSummary: String {
+        var parts: [String] = []
+        if let prompt = selectedPrompt {
+            let shortName = prompt.name.replacingOccurrences(of: "Human-Like ", with: "").replacingOccurrences(of: " v1.0", with: "")
+            parts.append(shortName)
+        }
+        parts.append(selectedMood.capitalized)
+        if useEmojis { parts.append("Emojis") }
+        return parts.joined(separator: " · ")
+    }
+
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     // Topic Input
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Topic")
-                            .font(.headline)
+                        Text("What do you want to post about?")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
                         TextEditor(text: $topic)
                             .frame(height: 100)
-                            .padding(8)
-                            .background(Color(.systemGray6))
-                            .cornerRadius(8)
+                            .padding(12)
+                            .background(Color.white)
+                            .cornerRadius(12)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 8)
+                                RoundedRectangle(cornerRadius: 12)
                                     .stroke(Color(.systemGray4), lineWidth: 1)
                             )
-                        Text("Describe what you want to post about")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
                     }
 
                     // Platform Picker
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Platform")
-                            .font(.headline)
-                        Picker("Platform", selection: $platform) {
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
+                        HStack(spacing: 10) {
                             ForEach(platforms, id: \.self) { p in
-                                Text(p).tag(p)
+                                Button(action: { platform = p }) {
+                                    HStack(spacing: 6) {
+                                        platformIcon(p)
+                                        Text(p)
+                                            .font(.system(size: 14, weight: .medium))
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(platform == p ? Color(red: 0.29, green: 0.42, blue: 0.98) : Color.white)
+                                    .foregroundColor(platform == p ? .white : Color(red: 0.42, green: 0.47, blue: 0.55))
+                                    .cornerRadius(10)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(platform == p ? Color.clear : Color(.systemGray4), lineWidth: 1)
+                                    )
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
-                        .pickerStyle(.segmented)
                     }
 
-                    Divider()
-
-                    // Generation Settings
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Generation Settings")
-                            .font(.headline)
-
-                        // Mood Picker
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Mood")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(moods, id: \.self) { mood in
-                                        Button(action: { selectedMood = mood }) {
-                                            Text(mood.capitalized)
-                                                .font(.caption)
-                                                .padding(.horizontal, 12)
-                                                .padding(.vertical, 8)
-                                                .background(selectedMood == mood ? Color.purple : Color(.systemGray5))
-                                                .foregroundColor(selectedMood == mood ? .white : .primary)
-                                                .cornerRadius(16)
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
+                    // Advanced Settings (Collapsible)
+                    VStack(spacing: 0) {
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                showAdvancedSettings.toggle()
                             }
-                        }
-
-                        // Prompt Style Picker
-                        if !prompts.isEmpty {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Prompt Style")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 8) {
-                                        ForEach(prompts) { prompt in
-                                            Button(action: { selectedPrompt = prompt }) {
-                                                VStack(alignment: .leading, spacing: 2) {
-                                                    Text(prompt.name)
-                                                        .font(.caption)
-                                                        .fontWeight(.medium)
-                                                    if let score = prompt.test_score {
-                                                        Text(String(format: "%.0f%%", score))
-                                                            .font(.caption2)
-                                                            .foregroundColor(selectedPrompt?.prompt_id == prompt.prompt_id ? .white.opacity(0.8) : .secondary)
-                                                    }
-                                                }
-                                                .padding(.horizontal, 12)
-                                                .padding(.vertical, 8)
-                                                .background(selectedPrompt?.prompt_id == prompt.prompt_id ? Color.blue : Color(.systemGray5))
-                                                .foregroundColor(selectedPrompt?.prompt_id == prompt.prompt_id ? .white : .primary)
-                                                .cornerRadius(12)
-                                            }
-                                            .buttonStyle(.plain)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Length Picker
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Length")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            HStack(spacing: 8) {
-                                ForEach(lengths, id: \.self) { length in
-                                    Button(action: { selectedLength = length }) {
-                                        Text(length.capitalized)
-                                            .font(.caption)
-                                            .padding(.horizontal, 12)
-                                            .padding(.vertical, 8)
-                                            .background(selectedLength == length ? Color.orange : Color(.systemGray5))
-                                            .foregroundColor(selectedLength == length ? .white : .primary)
-                                            .cornerRadius(16)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                        }
-
-                        // Emoji Toggle
-                        Toggle(isOn: $useEmojis) {
+                        }) {
                             HStack {
-                                Text("Include Emojis")
-                                    .font(.subheadline)
-                                Text("😊")
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Generation Settings")
+                                        .font(.system(size: 15, weight: .medium))
+                                        .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
+                                    Text(currentSettingsSummary)
+                                        .font(.system(size: 12))
+                                        .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
+                                }
+                                Spacer()
+                                Image(systemName: showAdvancedSettings ? "chevron.up" : "chevron.down")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
                             }
+                            .padding(16)
+                            .background(Color.white)
+                            .cornerRadius(showAdvancedSettings ? 12 : 12)
                         }
-                        .tint(.purple)
+                        .buttonStyle(.plain)
+
+                        if showAdvancedSettings {
+                            VStack(alignment: .leading, spacing: 16) {
+                                // Mood Picker
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Mood")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: 8) {
+                                            ForEach(moods, id: \.self) { mood in
+                                                Button(action: { selectedMood = mood }) {
+                                                    Text(mood.capitalized)
+                                                        .font(.system(size: 13, weight: .medium))
+                                                        .padding(.horizontal, 14)
+                                                        .padding(.vertical, 8)
+                                                        .background(selectedMood == mood ? Color(red: 0.6, green: 0.2, blue: 0.8) : Color(.systemGray6))
+                                                        .foregroundColor(selectedMood == mood ? .white : Color(red: 0.13, green: 0.16, blue: 0.24))
+                                                        .cornerRadius(20)
+                                                }
+                                                .buttonStyle(.plain)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Prompt Style Picker
+                                if !prompts.isEmpty {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("Voice")
+                                            .font(.system(size: 13, weight: .medium))
+                                            .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
+                                        ScrollView(.horizontal, showsIndicators: false) {
+                                            HStack(spacing: 8) {
+                                                ForEach(prompts) { prompt in
+                                                    let isSelected = selectedPrompt?.prompt_id == prompt.prompt_id
+                                                    let shortName = prompt.name
+                                                        .replacingOccurrences(of: "Human-Like ", with: "")
+                                                        .replacingOccurrences(of: " v1.0", with: "")
+                                                    Button(action: { selectedPrompt = prompt }) {
+                                                        HStack(spacing: 6) {
+                                                            Text(shortName)
+                                                                .font(.system(size: 13, weight: .medium))
+                                                            if let score = prompt.test_score {
+                                                                Text(String(format: "%.0f%%", score))
+                                                                    .font(.system(size: 11))
+                                                                    .padding(.horizontal, 6)
+                                                                    .padding(.vertical, 2)
+                                                                    .background(isSelected ? Color.white.opacity(0.2) : Color(.systemGray5))
+                                                                    .cornerRadius(8)
+                                                            }
+                                                        }
+                                                        .padding(.horizontal, 14)
+                                                        .padding(.vertical, 8)
+                                                        .background(isSelected ? Color(red: 0.29, green: 0.42, blue: 0.98) : Color(.systemGray6))
+                                                        .foregroundColor(isSelected ? .white : Color(red: 0.13, green: 0.16, blue: 0.24))
+                                                        .cornerRadius(20)
+                                                    }
+                                                    .buttonStyle(.plain)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Emoji Toggle
+                                HStack {
+                                    Text("Include Emojis")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
+                                    Spacer()
+                                    Toggle("", isOn: $useEmojis)
+                                        .labelsHidden()
+                                        .tint(Color(red: 0.6, green: 0.2, blue: 0.8))
+                                }
+                            }
+                            .padding(16)
+                            .padding(.top, 0)
+                            .background(Color.white)
+                            .cornerRadius(12)
+                            .offset(y: -8)
+                        }
                     }
+                    .background(Color.white)
+                    .cornerRadius(12)
+                    .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
 
                     // Generate Button
                     Button(action: generateContent) {
-                        HStack {
+                        HStack(spacing: 8) {
                             if isGenerating {
                                 ProgressView()
                                     .scaleEffect(0.8)
                                     .tint(.white)
                                 Text("Generating...")
                             } else {
-                                Image(systemName: "wand.and.stars")
-                                Text("Generate Content")
+                                Image(systemName: "sparkles")
+                                Text("Generate")
                             }
                         }
+                        .font(.system(size: 16, weight: .semibold))
                         .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(topic.isEmpty ? Color.purple.opacity(0.5) : Color.purple)
+                        .padding(.vertical, 16)
+                        .background(
+                            LinearGradient(
+                                colors: topic.isEmpty ? [Color.gray.opacity(0.5)] : [Color(red: 0.6, green: 0.2, blue: 0.8), Color(red: 0.8, green: 0.3, blue: 0.6)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
                         .foregroundColor(.white)
                         .cornerRadius(12)
                     }
@@ -520,10 +565,11 @@ struct AddPostView: View {
 
                     // Generated Content
                     if !generatedContent.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 12) {
                             HStack {
                                 Text("Generated Content")
-                                    .font(.headline)
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
                                 Spacer()
                                 Button(action: {
                                     UIPasteboard.general.string = generatedContent
@@ -532,33 +578,44 @@ struct AddPostView: View {
                                         showCopied = false
                                     }
                                 }) {
-                                    Label(showCopied ? "Copied!" : "Copy", systemImage: showCopied ? "checkmark" : "doc.on.doc")
-                                        .font(.caption)
+                                    HStack(spacing: 4) {
+                                        Image(systemName: showCopied ? "checkmark" : "doc.on.doc")
+                                        Text(showCopied ? "Copied!" : "Copy")
+                                    }
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(showCopied ? .green : Color(red: 0.29, green: 0.42, blue: 0.98))
                                 }
-                                .buttonStyle(.bordered)
                             }
 
                             Text(generatedContent)
-                                .font(.body)
-                                .padding()
+                                .font(.system(size: 15))
+                                .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
+                                .padding(16)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Color(.systemGray6))
-                                .cornerRadius(8)
+                                .background(Color.white)
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color(red: 0.29, green: 0.42, blue: 0.98).opacity(0.3), lineWidth: 1)
+                                )
                         }
 
-                        Divider()
-
                         // Schedule Section
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 12) {
                             Text("Schedule")
-                                .font(.headline)
-                            DatePicker("Date & Time", selection: $scheduledDate, in: Date()...)
-                                .padding(.vertical, 4)
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
+                            DatePicker("", selection: $scheduledDate, in: Date()...)
+                                .datePickerStyle(.compact)
+                                .labelsHidden()
+                                .padding(12)
+                                .background(Color.white)
+                                .cornerRadius(12)
                         }
 
                         // Schedule Button
                         Button(action: savePost) {
-                            HStack {
+                            HStack(spacing: 8) {
                                 if isLoading {
                                     ProgressView()
                                         .scaleEffect(0.8)
@@ -569,8 +626,9 @@ struct AddPostView: View {
                                     Text("Schedule Post")
                                 }
                             }
+                            .font(.system(size: 16, weight: .semibold))
                             .frame(maxWidth: .infinity)
-                            .padding()
+                            .padding(.vertical, 16)
                             .background(Color(red: 0.29, green: 0.42, blue: 0.98))
                             .foregroundColor(.white)
                             .cornerRadius(12)
@@ -578,8 +636,9 @@ struct AddPostView: View {
                         .disabled(isLoading)
                     }
                 }
-                .padding()
+                .padding(20)
             }
+            .background(Color(red: 0.96, green: 0.97, blue: 0.98))
             .navigationTitle("New Post")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -587,6 +646,7 @@ struct AddPostView: View {
                     Button("Cancel") {
                         dismiss()
                     }
+                    .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
                 }
             }
             .alert("Error", isPresented: $showError) {
@@ -600,12 +660,33 @@ struct AddPostView: View {
         }
     }
 
+    @ViewBuilder
+    private func platformIcon(_ platform: String) -> some View {
+        switch platform.lowercased() {
+        case "instagram":
+            Image(systemName: "camera")
+                .font(.system(size: 14))
+        case "tiktok":
+            Image(systemName: "play.rectangle")
+                .font(.system(size: 14))
+        case "email":
+            Image(systemName: "envelope")
+                .font(.system(size: 14))
+        default:
+            Image(systemName: "globe")
+                .font(.system(size: 14))
+        }
+    }
+
     private func loadPrompts() async {
         do {
             let response = try await ApiClient.shared.getPrompts()
             await MainActor.run {
                 prompts = response.prompts
-                selectedPrompt = prompts.first(where: { $0.is_default }) ?? prompts.first
+                // Default to "Human-Like Sarah v1.0" or first default prompt
+                selectedPrompt = prompts.first(where: { $0.name.contains("Sarah") })
+                    ?? prompts.first(where: { $0.is_default })
+                    ?? prompts.first
             }
         } catch {
             // Silently fail - prompts are optional
