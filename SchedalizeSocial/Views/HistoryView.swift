@@ -7,9 +7,93 @@
 
 import SwiftUI
 
+// Singleton to persist history data across tab switches
+class HistoryStore: ObservableObject {
+    static let shared = HistoryStore()
+
+    @Published var allItems: [UnifiedHistoryItem] = []
+    @Published var isLoading = false
+    @Published var hasLoaded = false
+    @Published var selectedFilters: Set<HistoryItemType> = Set(HistoryItemType.allCases)
+
+    private init() {}
+
+    var filteredItems: [UnifiedHistoryItem] {
+        allItems
+            .filter { selectedFilters.contains($0.type) }
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    var repliesCount: Int { allItems.filter { $0.type == .reply }.count }
+    var tasksCount: Int { allItems.filter { $0.type == .task }.count }
+    var scheduledCount: Int { allItems.filter { $0.type == .scheduled }.count }
+
+    func toggleFilter(_ type: HistoryItemType) {
+        if selectedFilters.contains(type) {
+            if selectedFilters.count > 1 {
+                selectedFilters.remove(type)
+            }
+        } else {
+            selectedFilters.insert(type)
+        }
+    }
+
+    @MainActor
+    func loadAllHistory() async {
+        guard !isLoading else { return }
+        isLoading = true
+
+        async let repliesTask = loadReplies()
+        async let tasksTask = loadTasks()
+        async let scheduledTask = loadScheduled()
+
+        let (replies, tasks, scheduled) = await (repliesTask, tasksTask, scheduledTask)
+
+        var items: [UnifiedHistoryItem] = []
+        items.append(contentsOf: replies)
+        items.append(contentsOf: tasks)
+        items.append(contentsOf: scheduled)
+
+        allItems = items
+        isLoading = false
+        hasLoaded = true
+        print("[History] Loaded \(items.count) total items")
+    }
+
+    private func loadReplies() async -> [UnifiedHistoryItem] {
+        do {
+            let response = try await ApiClient.shared.getHistory()
+            return response.replies.map { UnifiedHistoryItem.from(reply: $0) }
+        } catch {
+            print("[History] Failed to load replies: \(error)")
+            return []
+        }
+    }
+
+    private func loadTasks() async -> [UnifiedHistoryItem] {
+        do {
+            let response = try await ApiClient.shared.getCalendarTasks(includeCompleted: true)
+            let completedTasks = response.tasks.filter { $0.is_completed && $0.generated_content != nil }
+            return completedTasks.map { UnifiedHistoryItem.from(task: $0) }
+        } catch {
+            print("[History] Failed to load tasks: \(error)")
+            return []
+        }
+    }
+
+    private func loadScheduled() async -> [UnifiedHistoryItem] {
+        do {
+            let response = try await ApiClient.shared.getScheduledPosts()
+            return response.posts.map { UnifiedHistoryItem.from(scheduled: $0) }
+        } catch {
+            print("[History] Failed to load scheduled posts: \(error)")
+            return []
+        }
+    }
+}
+
 struct HistoryView: View {
-    @State private var historyItems: [HistoryItem] = []
-    @State private var isLoading = false
+    @ObservedObject private var store = HistoryStore.shared
     @State private var errorMessage = ""
     @State private var showError = false
 
@@ -19,42 +103,79 @@ struct HistoryView: View {
                 Color(red: 0.96, green: 0.97, blue: 0.98)
                     .ignoresSafeArea()
 
-                if isLoading {
-                    ProgressView()
-                } else if historyItems.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "clock")
-                            .font(.system(size: 60))
-                            .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55).opacity(0.5))
-
-                        Text("No history yet")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
-
-                        Text("Your generated replies will appear here")
-                            .font(.system(size: 14))
-                            .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55).opacity(0.7))
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding(40)
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(historyItems) { item in
-                                HistoryItemCard(item: item)
-                            }
+                VStack(spacing: 0) {
+                    // Filter Tags
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            FilterTag(
+                                type: .reply,
+                                count: store.repliesCount,
+                                isSelected: store.selectedFilters.contains(.reply),
+                                onTap: { store.toggleFilter(.reply) }
+                            )
+                            FilterTag(
+                                type: .task,
+                                count: store.tasksCount,
+                                isSelected: store.selectedFilters.contains(.task),
+                                onTap: { store.toggleFilter(.task) }
+                            )
+                            FilterTag(
+                                type: .scheduled,
+                                count: store.scheduledCount,
+                                isSelected: store.selectedFilters.contains(.scheduled),
+                                onTap: { store.toggleFilter(.scheduled) }
+                            )
                         }
-                        .padding(20)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                    }
+                    .background(Color.white)
+
+                    if store.isLoading && !store.hasLoaded {
+                        Spacer()
+                        ProgressView()
+                        Spacer()
+                    } else if store.filteredItems.isEmpty && store.hasLoaded {
+                        Spacer()
+                        VStack(spacing: 16) {
+                            Image(systemName: "clock")
+                                .font(.system(size: 60))
+                                .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55).opacity(0.5))
+
+                            Text("No history yet")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
+
+                            Text("Your generated content will appear here")
+                                .font(.system(size: 14))
+                                .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55).opacity(0.7))
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(40)
+                        Spacer()
+                    } else if !store.filteredItems.isEmpty {
+                        ScrollView {
+                            LazyVStack(spacing: 12) {
+                                ForEach(store.filteredItems) { item in
+                                    UnifiedHistoryCard(item: item)
+                                }
+                            }
+                            .padding(20)
+                        }
                     }
                 }
             }
             .navigationTitle("History")
             .navigationBarTitleDisplayMode(.large)
             .refreshable {
-                await loadHistory()
+                await store.loadAllHistory()
             }
-            .task {
-                await loadHistory()
+            .onAppear {
+                if !store.hasLoaded {
+                    Task {
+                        await store.loadAllHistory()
+                    }
+                }
             }
             .alert("Error", isPresented: $showError) {
                 Button("OK", role: .cancel) {}
@@ -63,107 +184,199 @@ struct HistoryView: View {
             }
         }
     }
+}
 
-    private func loadHistory() async {
-        isLoading = true
-        errorMessage = ""
+struct FilterTag: View {
+    let type: HistoryItemType
+    let count: Int
+    let isSelected: Bool
+    let onTap: () -> Void
 
-        do {
-            let response = try await ApiClient.shared.getHistory()
-            await MainActor.run {
-                historyItems = response.replies
-                isLoading = false
-            }
-        } catch let error as APIError {
-            await MainActor.run {
-                switch error {
-                case .serverError(let message):
-                    errorMessage = message
-                default:
-                    errorMessage = "Failed to load history. Please try again."
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 6) {
+                Image(systemName: type.icon)
+                    .font(.system(size: 12))
+                Text(type.label)
+                    .font(.system(size: 13, weight: .medium))
+                if count > 0 {
+                    Text("\(count)")
+                        .font(.system(size: 11, weight: .semibold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(isSelected ? Color.white.opacity(0.3) : Color.gray.opacity(0.2))
+                        .cornerRadius(8)
                 }
-                showError = true
-                isLoading = false
             }
-        } catch {
-            await MainActor.run {
-                errorMessage = "An unexpected error occurred."
-                showError = true
-                isLoading = false
-            }
+            .foregroundColor(isSelected ? .white : Color(red: type.color.red, green: type.color.green, blue: type.color.blue))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(
+                isSelected
+                    ? Color(red: type.color.red, green: type.color.green, blue: type.color.blue)
+                    : Color(red: type.color.red, green: type.color.green, blue: type.color.blue).opacity(0.1)
+            )
+            .cornerRadius(20)
         }
+        .buttonStyle(.plain)
     }
 }
 
-struct HistoryItemCard: View {
-    let item: HistoryItem
+struct UnifiedHistoryCard: View {
+    let item: UnifiedHistoryItem
+    @State private var showCopied = false
+    @State private var showPostedMenu = false
+    @State private var postedDate = Date()
+    @State private var postedPlatform = "instagram"
+
+    private let platforms = ["instagram", "tiktok", "twitter", "email"]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Header with platform
+            // Header with type tag and platform
             HStack {
-                HStack(spacing: 6) {
+                // Type Tag
+                HStack(spacing: 4) {
+                    Image(systemName: item.type.icon)
+                        .font(.system(size: 10))
+                    Text(item.type.label.dropLast()) // Remove 's' for singular
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .foregroundColor(Color(red: item.type.color.red, green: item.type.color.green, blue: item.type.color.blue))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color(red: item.type.color.red, green: item.type.color.green, blue: item.type.color.blue).opacity(0.1))
+                .cornerRadius(6)
+
+                // Platform
+                HStack(spacing: 4) {
                     platformIcon(item.platform)
                     Text(item.platform.capitalized)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.system(size: 11, weight: .medium))
                 }
-                .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Color(red: 0.29, green: 0.42, blue: 0.98).opacity(0.1))
+                .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color(red: 0.42, green: 0.47, blue: 0.55).opacity(0.1))
                 .cornerRadius(6)
 
                 Spacer()
 
-                Text(formatDate(item.created_at))
-                    .font(.system(size: 12))
+                // Date
+                Text(formatDate(item.createdAt))
+                    .font(.system(size: 11))
                     .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
             }
 
-            // Original Message
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Original Message")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
+            // Task title if available
+            if let title = item.taskTitle {
+                HStack(spacing: 6) {
+                    if let day = item.dayNumber {
+                        Text("Day \(day)")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.purple)
+                    }
+                    Text(title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
+                }
+            }
 
-                Text(item.original_message)
-                    .font(.system(size: 14))
-                    .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
-                    .lineLimit(3)
+            // Original message for replies
+            if let originalMessage = item.originalMessage {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Original")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
+                    Text(originalMessage)
+                        .font(.system(size: 13))
+                        .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
+                        .lineLimit(2)
+                }
+                .padding(10)
+                .background(Color(red: 0.96, green: 0.97, blue: 0.98))
+                .cornerRadius(8)
+            }
+
+            // Content
+            Text(item.content)
+                .font(.system(size: 14))
+                .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
+                .lineLimit(4)
+
+            // Scheduled info
+            if let scheduledFor = item.scheduledFor {
+                HStack(spacing: 4) {
+                    Image(systemName: "calendar.badge.clock")
+                        .font(.system(size: 11))
+                    Text("Scheduled: \(formatDateTime(scheduledFor))")
+                        .font(.system(size: 11))
+                    if let status = item.status {
+                        Text("• \(status.capitalized)")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(status == "pending" ? .orange : .green)
+                    }
+                }
+                .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
+            }
+
+            // Posted badge
+            if let postedAt = item.postedAt {
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 11))
+                        .foregroundColor(.green)
+                    Text("Posted \(formatDate(postedAt))")
+                        .font(.system(size: 11, weight: .medium))
+                    if let platform = item.postedPlatform {
+                        Text("on \(platform.capitalized)")
+                            .font(.system(size: 11))
+                    }
+                }
+                .foregroundColor(.green)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color.green.opacity(0.1))
+                .cornerRadius(6)
             }
 
             Divider()
 
-            // Generated Replies
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Generated Replies")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
+            // Actions
+            HStack {
+                // Copy button
+                Button(action: {
+                    UIPasteboard.general.string = item.content
+                    showCopied = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        showCopied = false
+                    }
+                }) {
+                    Label(showCopied ? "Copied!" : "Copy", systemImage: showCopied ? "checkmark" : "doc.on.doc")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .buttonStyle(.bordered)
+                .tint(showCopied ? .green : .gray)
 
-                ForEach(item.generated_replies) { reply in
-                    HStack(alignment: .top, spacing: 8) {
-                        Text(reply.tone.capitalized)
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color(red: 0.29, green: 0.42, blue: 0.98).opacity(0.1))
-                            .cornerRadius(4)
+                Spacer()
 
-                        Text(reply.text)
-                            .font(.system(size: 13))
-                            .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
-                            .lineLimit(2)
-
-                        Spacer()
-
-                        Button(action: { copyToClipboard(reply.text) }) {
-                            Image(systemName: "doc.on.doc")
-                                .font(.system(size: 12))
-                                .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
+                // Mark as Posted button
+                Menu {
+                    Section("Mark as Posted") {
+                        ForEach(platforms, id: \.self) { platform in
+                            Button(action: {
+                                markAsPosted(platform: platform)
+                            }) {
+                                Label(platform.capitalized, systemImage: platformIconName(platform))
+                            }
                         }
                     }
+                } label: {
+                    Label("Posted", systemImage: "checkmark.circle")
+                        .font(.system(size: 12, weight: .medium))
                 }
+                .buttonStyle(.bordered)
+                .tint(Color(red: 0.0, green: 0.7, blue: 0.4))
             }
         }
         .padding(16)
@@ -172,36 +385,58 @@ struct HistoryItemCard: View {
         .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
     }
 
+    private func markAsPosted(platform: String) {
+        // TODO: Call API to mark as posted
+        print("[History] Mark as posted on \(platform)")
+    }
+
     @ViewBuilder
     private func platformIcon(_ platform: String) -> some View {
         switch platform.lowercased() {
         case "instagram":
-            InstagramIconView(color: Color(red: 0.29, green: 0.42, blue: 0.98), size: 12)
+            InstagramIconView(color: Color(red: 0.42, green: 0.47, blue: 0.55), size: 11)
         case "tiktok":
-            TikTokIconView(color: Color(red: 0.29, green: 0.42, blue: 0.98), size: 12)
+            TikTokIconView(color: Color(red: 0.42, green: 0.47, blue: 0.55), size: 11)
         case "email":
             Image(systemName: "envelope.fill")
-                .font(.system(size: 12))
+                .font(.system(size: 11))
+        case "twitter":
+            Image(systemName: "at")
+                .font(.system(size: 11))
         default:
-            Image(systemName: "bubble.left.fill")
-                .font(.system(size: 12))
+            Image(systemName: "globe")
+                .font(.system(size: 11))
         }
     }
 
-    private func formatDate(_ dateString: String) -> String {
-        let formatter = ISO8601DateFormatter()
-        guard let date = formatter.date(from: dateString) else {
-            return dateString
+    private func platformIconName(_ platform: String) -> String {
+        switch platform.lowercased() {
+        case "instagram": return "camera"
+        case "tiktok": return "play.rectangle"
+        case "email": return "envelope"
+        case "twitter": return "at"
+        default: return "globe"
         }
-
-        let displayFormatter = DateFormatter()
-        displayFormatter.dateStyle = .short
-        displayFormatter.timeStyle = .short
-        return displayFormatter.string(from: date)
     }
 
-    private func copyToClipboard(_ text: String) {
-        UIPasteboard.general.string = text
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        if Calendar.current.isDateInToday(date) {
+            formatter.dateFormat = "h:mm a"
+            return "Today \(formatter.string(from: date))"
+        } else if Calendar.current.isDateInYesterday(date) {
+            formatter.dateFormat = "h:mm a"
+            return "Yesterday \(formatter.string(from: date))"
+        } else {
+            formatter.dateFormat = "MMM d"
+            return formatter.string(from: date)
+        }
+    }
+
+    private func formatDateTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d 'at' h:mm a"
+        return formatter.string(from: date)
     }
 }
 

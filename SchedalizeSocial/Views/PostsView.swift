@@ -16,6 +16,23 @@ struct PostsView: View {
     @State private var currentMonth = Date()
     @State private var selectedDate: Date?
 
+    private static let isoFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private var postsForSelectedDate: [ScheduledPost] {
+        guard let selected = selectedDate else { return [] }
+        return scheduledPosts.filter { post in
+            guard let postDate = Self.isoFormatter.date(from: post.scheduled_for)
+                    ?? ISO8601DateFormatter().date(from: post.scheduled_for) else {
+                return false
+            }
+            return Calendar.current.isDate(postDate, inSameDayAs: selected)
+        }
+    }
+
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
@@ -43,15 +60,33 @@ struct PostsView: View {
 
                             // Posts for selected date or all upcoming
                             if let selected = selectedDate {
-                                let postsForDate = postsForDate(selected)
-                                if !postsForDate.isEmpty {
-                                    VStack(alignment: .leading, spacing: 12) {
-                                        Text("Posts on \(formatDateHeader(selected))")
-                                            .font(.system(size: 18, weight: .bold))
-                                            .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
-                                            .padding(.horizontal, 20)
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text("Posts on \(formatDateHeader(selected))")
+                                        .font(.system(size: 18, weight: .bold))
+                                        .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
+                                        .padding(.horizontal, 20)
 
-                                        ForEach(postsForDate) { post in
+                                    if postsForSelectedDate.isEmpty {
+                                        // Empty state for selected date
+                                        VStack(spacing: 12) {
+                                            Image(systemName: "calendar.badge.plus")
+                                                .font(.system(size: 40))
+                                                .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55).opacity(0.5))
+                                            Text("No posts scheduled")
+                                                .font(.system(size: 16, weight: .medium))
+                                                .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
+                                            Button(action: { showAddPost = true }) {
+                                                Label("Schedule a post", systemImage: "plus")
+                                                    .font(.system(size: 14, weight: .medium))
+                                            }
+                                            .buttonStyle(.borderedProminent)
+                                            .tint(Color(red: 0.29, green: 0.42, blue: 0.98))
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 30)
+                                        .padding(.horizontal, 20)
+                                    } else {
+                                        ForEach(postsForSelectedDate) { post in
                                             PostCard(post: post, onDelete: { deletePost(post.post_id) })
                                                 .padding(.horizontal, 20)
                                         }
@@ -69,9 +104,8 @@ struct PostsView: View {
                                             .padding(.horizontal, 20)
                                     }
                                 }
-                            }
-
-                            if scheduledPosts.isEmpty {
+                            } else {
+                                // No posts at all
                                 VStack(spacing: 16) {
                                     Image(systemName: "calendar")
                                         .font(.system(size: 60))
@@ -81,7 +115,7 @@ struct PostsView: View {
                                         .font(.system(size: 18, weight: .semibold))
                                         .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
 
-                                    Text("Schedule posts to publish later")
+                                    Text("Tap a date and + to schedule a post")
                                         .font(.system(size: 14))
                                         .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55).opacity(0.7))
                                         .multilineTextAlignment(.center)
@@ -94,7 +128,7 @@ struct PostsView: View {
                 }
             }
             .background(Color(red: 0.96, green: 0.97, blue: 0.98))
-            .navigationTitle("Calendar")
+            .navigationTitle("Schedule (\(scheduledPosts.count))")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -107,11 +141,15 @@ struct PostsView: View {
             .refreshable {
                 await loadPosts()
             }
-            .task {
-                await loadPosts()
+            .onAppear {
+                if scheduledPosts.isEmpty {
+                    Task {
+                        await loadPosts()
+                    }
+                }
             }
             .sheet(isPresented: $showAddPost) {
-                AddPostView(onSave: {
+                AddPostView(initialDate: selectedDate ?? Date(), onSave: {
                     Task { await loadPosts() }
                 })
             }
@@ -120,15 +158,6 @@ struct PostsView: View {
             } message: {
                 Text(errorMessage)
             }
-        }
-    }
-
-    private func postsForDate(_ date: Date) -> [ScheduledPost] {
-        scheduledPosts.filter { post in
-            guard let postDate = ISO8601DateFormatter().date(from: post.scheduled_for) else {
-                return false
-            }
-            return Calendar.current.isDate(postDate, inSameDayAs: date)
         }
     }
 
@@ -147,21 +176,29 @@ struct PostsView: View {
             await MainActor.run {
                 scheduledPosts = response.posts
                 isLoading = false
+                print("[Schedule] Loaded \(response.posts.count) posts")
             }
         } catch let error as APIError {
             await MainActor.run {
                 switch error {
                 case .serverError(let message):
                     errorMessage = message
+                case .decodingError(let decodingError):
+                    errorMessage = "Decoding error: \(decodingError.localizedDescription)"
+                    print("[Schedule] Decoding error: \(decodingError)")
+                case .unauthorized:
+                    errorMessage = "Please log in again"
                 default:
-                    errorMessage = "Failed to load posts. Please try again."
+                    errorMessage = "Failed to load posts: \(error.localizedDescription)"
                 }
+                print("[Schedule] Error: \(errorMessage)")
                 showError = true
                 isLoading = false
             }
         } catch {
             await MainActor.run {
-                errorMessage = "An unexpected error occurred."
+                errorMessage = "Unexpected error: \(error.localizedDescription)"
+                print("[Schedule] Unexpected error: \(error)")
                 showError = true
                 isLoading = false
             }
@@ -280,54 +317,268 @@ struct PostCard: View {
 
 struct AddPostView: View {
     @Environment(\.dismiss) var dismiss
-    @State private var content = ""
+    @State private var topic = ""
+    @State private var generatedContent = ""
     @State private var platform = "Instagram"
-    @State private var scheduledDate = Date()
+    @State private var scheduledDate: Date
     @State private var isLoading = false
+    @State private var isGenerating = false
     @State private var errorMessage = ""
     @State private var showError = false
+    @State private var prompts: [Prompt] = []
+    @State private var selectedPrompt: Prompt?
+    @State private var selectedMood = "focused"
+    @State private var selectedLength = "normal"
+    @State private var useEmojis = true
+    @State private var showCopied = false
 
     let platforms = ["Instagram", "TikTok", "Email"]
+    let moods = ["excited", "tired", "focused", "grateful", "frustrated"]
+    let lengths = ["brief", "normal", "long"]
+    let initialDate: Date
     let onSave: () -> Void
+
+    init(initialDate: Date = Date(), onSave: @escaping () -> Void) {
+        self.initialDate = initialDate
+        self.onSave = onSave
+        // Set the initial scheduled date at 12:00 PM (noon)
+        let calendar = Calendar.current
+        var dateToUse = initialDate
+
+        // If date is in the past, use today
+        if calendar.startOfDay(for: initialDate) < calendar.startOfDay(for: Date()) {
+            dateToUse = Date()
+        }
+
+        // Set time to 12:00 PM
+        var components = calendar.dateComponents([.year, .month, .day], from: dateToUse)
+        components.hour = 12
+        components.minute = 0
+        components.second = 0
+        let noonDate = calendar.date(from: components) ?? dateToUse
+
+        // If noon has already passed today, use tomorrow at noon
+        let finalDate: Date
+        if noonDate <= Date() {
+            finalDate = calendar.date(byAdding: .day, value: 1, to: noonDate) ?? noonDate
+        } else {
+            finalDate = noonDate
+        }
+
+        _scheduledDate = State(initialValue: finalDate)
+    }
 
     var body: some View {
         NavigationView {
-            Form {
-                Section("Content") {
-                    TextEditor(text: $content)
-                        .frame(height: 150)
-                }
-
-                Section("Platform") {
-                    Picker("Platform", selection: $platform) {
-                        ForEach(platforms, id: \.self) { platform in
-                            Text(platform).tag(platform)
-                        }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // Topic Input
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Topic")
+                            .font(.headline)
+                        TextEditor(text: $topic)
+                            .frame(height: 100)
+                            .padding(8)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color(.systemGray4), lineWidth: 1)
+                            )
+                        Text("Describe what you want to post about")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
-                    .pickerStyle(.segmented)
-                }
 
-                Section("Schedule") {
-                    DatePicker("Date & Time", selection: $scheduledDate, in: Date()...)
-                }
-
-                Section {
-                    Button(action: savePost) {
-                        if isLoading {
-                            HStack {
-                                Spacer()
-                                ProgressView()
-                                Spacer()
+                    // Platform Picker
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Platform")
+                            .font(.headline)
+                        Picker("Platform", selection: $platform) {
+                            ForEach(platforms, id: \.self) { p in
+                                Text(p).tag(p)
                             }
-                        } else {
-                            Text("Schedule Post")
-                                .frame(maxWidth: .infinity)
-                                .foregroundColor(.white)
                         }
+                        .pickerStyle(.segmented)
                     }
-                    .listRowBackground(Color(red: 0.29, green: 0.42, blue: 0.98))
-                    .disabled(content.isEmpty || isLoading)
+
+                    Divider()
+
+                    // Generation Settings
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Generation Settings")
+                            .font(.headline)
+
+                        // Mood Picker
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Mood")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(moods, id: \.self) { mood in
+                                        Button(action: { selectedMood = mood }) {
+                                            Text(mood.capitalized)
+                                                .font(.caption)
+                                                .padding(.horizontal, 12)
+                                                .padding(.vertical, 8)
+                                                .background(selectedMood == mood ? Color.purple : Color(.systemGray5))
+                                                .foregroundColor(selectedMood == mood ? .white : .primary)
+                                                .cornerRadius(16)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
+                        }
+
+                        // Prompt Style Picker
+                        if !prompts.isEmpty {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Prompt Style")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        ForEach(prompts) { prompt in
+                                            Button(action: { selectedPrompt = prompt }) {
+                                                VStack(alignment: .leading, spacing: 2) {
+                                                    Text(prompt.name)
+                                                        .font(.caption)
+                                                        .fontWeight(.medium)
+                                                    if let score = prompt.test_score {
+                                                        Text(String(format: "%.0f%%", score))
+                                                            .font(.caption2)
+                                                            .foregroundColor(selectedPrompt?.prompt_id == prompt.prompt_id ? .white.opacity(0.8) : .secondary)
+                                                    }
+                                                }
+                                                .padding(.horizontal, 12)
+                                                .padding(.vertical, 8)
+                                                .background(selectedPrompt?.prompt_id == prompt.prompt_id ? Color.blue : Color(.systemGray5))
+                                                .foregroundColor(selectedPrompt?.prompt_id == prompt.prompt_id ? .white : .primary)
+                                                .cornerRadius(12)
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Length Picker
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Length")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            HStack(spacing: 8) {
+                                ForEach(lengths, id: \.self) { length in
+                                    Button(action: { selectedLength = length }) {
+                                        Text(length.capitalized)
+                                            .font(.caption)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 8)
+                                            .background(selectedLength == length ? Color.orange : Color(.systemGray5))
+                                            .foregroundColor(selectedLength == length ? .white : .primary)
+                                            .cornerRadius(16)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+
+                        // Emoji Toggle
+                        Toggle(isOn: $useEmojis) {
+                            HStack {
+                                Text("Include Emojis")
+                                    .font(.subheadline)
+                                Text("😊")
+                            }
+                        }
+                        .tint(.purple)
+                    }
+
+                    // Generate Button
+                    Button(action: generateContent) {
+                        HStack {
+                            if isGenerating {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                    .tint(.white)
+                                Text("Generating...")
+                            } else {
+                                Image(systemName: "wand.and.stars")
+                                Text("Generate Content")
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(topic.isEmpty ? Color.purple.opacity(0.5) : Color.purple)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                    }
+                    .disabled(topic.isEmpty || isGenerating)
+
+                    // Generated Content
+                    if !generatedContent.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("Generated Content")
+                                    .font(.headline)
+                                Spacer()
+                                Button(action: {
+                                    UIPasteboard.general.string = generatedContent
+                                    showCopied = true
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                        showCopied = false
+                                    }
+                                }) {
+                                    Label(showCopied ? "Copied!" : "Copy", systemImage: showCopied ? "checkmark" : "doc.on.doc")
+                                        .font(.caption)
+                                }
+                                .buttonStyle(.bordered)
+                            }
+
+                            Text(generatedContent)
+                                .font(.body)
+                                .padding()
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(8)
+                        }
+
+                        Divider()
+
+                        // Schedule Section
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Schedule")
+                                .font(.headline)
+                            DatePicker("Date & Time", selection: $scheduledDate, in: Date()...)
+                                .padding(.vertical, 4)
+                        }
+
+                        // Schedule Button
+                        Button(action: savePost) {
+                            HStack {
+                                if isLoading {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                        .tint(.white)
+                                    Text("Scheduling...")
+                                } else {
+                                    Image(systemName: "calendar.badge.plus")
+                                    Text("Schedule Post")
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color(red: 0.29, green: 0.42, blue: 0.98))
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                        }
+                        .disabled(isLoading)
+                    }
                 }
+                .padding()
             }
             .navigationTitle("New Post")
             .navigationBarTitleDisplayMode(.inline)
@@ -343,6 +594,46 @@ struct AddPostView: View {
             } message: {
                 Text(errorMessage)
             }
+            .task {
+                await loadPrompts()
+            }
+        }
+    }
+
+    private func loadPrompts() async {
+        do {
+            let response = try await ApiClient.shared.getPrompts()
+            await MainActor.run {
+                prompts = response.prompts
+                selectedPrompt = prompts.first(where: { $0.is_default }) ?? prompts.first
+            }
+        } catch {
+            // Silently fail - prompts are optional
+        }
+    }
+
+    private func generateContent() {
+        isGenerating = true
+        Task {
+            do {
+                let result = try await ApiClient.shared.generateHumanPost(
+                    topic: topic,
+                    platform: platform.lowercased(),
+                    mood: selectedMood,
+                    includeEmojis: useEmojis,
+                    promptId: selectedPrompt?.prompt_id
+                )
+                await MainActor.run {
+                    generatedContent = result.content
+                    isGenerating = false
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = "Failed to generate content"
+                    showError = true
+                    isGenerating = false
+                }
+            }
         }
     }
 
@@ -356,7 +647,7 @@ struct AddPostView: View {
         Task {
             do {
                 try await ApiClient.shared.createScheduledPost(
-                    content: content,
+                    content: generatedContent,
                     platform: platform.lowercased(),
                     scheduledFor: scheduledFor
                 )
@@ -439,6 +730,12 @@ struct CalendarGridView: View {
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
     private let weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
+    private static let isoFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
     var body: some View {
         VStack(spacing: 12) {
             // Week day headers
@@ -453,11 +750,11 @@ struct CalendarGridView: View {
 
             // Calendar days
             LazyVGrid(columns: columns, spacing: 8) {
-                ForEach(daysInMonth, id: \.self) { date in
+                ForEach(Array(daysInMonth.enumerated()), id: \.offset) { index, date in
                     if let date = date {
                         CalendarDayView(
                             date: date,
-                            isSelected: selectedDate != nil && Calendar.current.isDate(date, inSameDayAs: selectedDate!),
+                            isSelected: isDateSelected(date),
                             isToday: Calendar.current.isDateInToday(date),
                             hasPost: hasPostOnDate(date),
                             onTap: { selectedDate = date }
@@ -472,6 +769,11 @@ struct CalendarGridView: View {
         .padding(16)
         .background(Color.white)
         .cornerRadius(12)
+    }
+
+    private func isDateSelected(_ date: Date) -> Bool {
+        guard let selected = selectedDate else { return false }
+        return Calendar.current.isDate(date, inSameDayAs: selected)
     }
 
     private var daysInMonth: [Date?] {
@@ -497,7 +799,8 @@ struct CalendarGridView: View {
 
     private func hasPostOnDate(_ date: Date) -> Bool {
         scheduledPosts.contains { post in
-            guard let postDate = ISO8601DateFormatter().date(from: post.scheduled_for) else {
+            guard let postDate = Self.isoFormatter.date(from: post.scheduled_for)
+                    ?? ISO8601DateFormatter().date(from: post.scheduled_for) else {
                 return false
             }
             return Calendar.current.isDate(postDate, inSameDayAs: date)

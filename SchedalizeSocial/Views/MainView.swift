@@ -236,17 +236,17 @@ struct MainView: View {
                 }
                 .tag(1)
 
-            // Calendar Tab (30-day tasks)
+            // Tasks Tab (30-day content tasks with AI generation)
             CalendarView()
                 .tabItem {
-                    Label("Calendar", systemImage: "calendar.badge.clock")
+                    Label("Tasks", systemImage: "checklist")
                 }
                 .tag(2)
 
-            // Posts Tab (scheduled posts)
+            // Schedule Tab (scheduled posts calendar)
             PostsView()
                 .tabItem {
-                    Label("Posts", systemImage: "calendar")
+                    Label("Schedule", systemImage: "calendar")
                 }
                 .tag(3)
         }

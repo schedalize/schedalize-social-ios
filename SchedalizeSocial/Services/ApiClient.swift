@@ -7,12 +7,27 @@
 
 import Foundation
 
-enum APIError: Error {
+enum APIError: LocalizedError {
     case invalidURL
     case networkError(Error)
     case decodingError(Error)
     case serverError(String)
     case unauthorized
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL:
+            return "Invalid URL"
+        case .networkError(let error):
+            return "Network error: \(error.localizedDescription)"
+        case .decodingError(let error):
+            return "Decoding error: \(error.localizedDescription)"
+        case .serverError(let message):
+            return "Server error: \(message)"
+        case .unauthorized:
+            return "Unauthorized - please log in again"
+        }
+    }
 }
 
 class ApiClient {
@@ -117,12 +132,20 @@ class ApiClient {
         return response.task
     }
 
-    func generateTaskContent(taskId: String, mood: String? = nil) async throws -> GenerateTaskContentResponse {
+    func generateTaskContent(taskId: String, mood: String? = nil, promptId: String? = nil, length: String? = nil, includeEmojis: Bool? = nil) async throws -> GenerateTaskContentResponse {
         struct GenerateRequest: Codable {
             let mood: String?
+            let prompt_id: String?
+            let length: String?
+            let include_emojis: Bool?
         }
-        let request = GenerateRequest(mood: mood)
+        let request = GenerateRequest(mood: mood, prompt_id: promptId, length: length, include_emojis: includeEmojis)
         return try await post(endpoint: "/api/v1/calendar/tasks/\(taskId)/generate", body: request, requiresAuth: true)
+    }
+
+    func importCalendarTemplates(startDate: String? = nil) async throws -> ImportTemplatesResponse {
+        let request = ImportTemplatesRequest(templates: CalendarTemplates.all, start_date: startDate)
+        return try await post(endpoint: "/api/v1/calendar/import-templates", body: request, requiresAuth: true)
     }
 
     // MARK: - Generic Network Methods
