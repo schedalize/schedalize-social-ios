@@ -12,18 +12,13 @@ struct GeneratePostView: View {
 
     @State private var topic = ""
     @State private var selectedPlatform = "instagram"
-    @State private var selectedMood = "focused"
     @State private var includeEmojis = true
-    @State private var selectedPrompt: Prompt?
-    @State private var prompts: [Prompt] = []
 
     @State private var generatedContent: String?
     @State private var isLoading = false
-    @State private var isLoadingPrompts = false
     @State private var errorMessage: String?
 
     let platforms = ["instagram", "twitter", "tiktok", "linkedin"]
-    let moods = ["excited", "tired", "focused", "grateful", "frustrated"]
 
     var body: some View {
         NavigationView {
@@ -50,59 +45,6 @@ struct GeneratePostView: View {
                         }
                     }
                     .pickerStyle(.segmented)
-                }
-
-                // Mood Section
-                Section {
-                    Picker("Mood", selection: $selectedMood) {
-                        ForEach(moods, id: \.self) { mood in
-                            HStack {
-                                Text(moodEmoji(mood))
-                                Text(mood.capitalized)
-                            }
-                            .tag(mood)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                } header: {
-                    Text("Mood")
-                } footer: {
-                    Text(moodDescription(selectedMood))
-                }
-
-                // Prompt Selection
-                Section {
-                    if isLoadingPrompts {
-                        HStack {
-                            ProgressView()
-                            Text("Loading prompts...")
-                                .foregroundColor(.secondary)
-                        }
-                    } else if prompts.isEmpty {
-                        Text("No prompts available")
-                            .foregroundColor(.secondary)
-                    } else {
-                        Picker("Prompt", selection: $selectedPrompt) {
-                            ForEach(prompts) { prompt in
-                                VStack(alignment: .leading) {
-                                    Text(prompt.name)
-                                    if let score = prompt.test_score {
-                                        Text("Score: \(Int(score))%")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                }
-                                .tag(prompt as Prompt?)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                    }
-                } header: {
-                    Text("AI Prompt")
-                } footer: {
-                    if let prompt = selectedPrompt {
-                        Text(prompt.description ?? "Default prompt for generating human-like content")
-                    }
                 }
 
                 // Options
@@ -172,9 +114,6 @@ struct GeneratePostView: View {
                     Button("Cancel") { dismiss() }
                 }
             }
-            .onAppear {
-                loadPrompts()
-            }
         }
     }
 
@@ -194,47 +133,6 @@ struct GeneratePostView: View {
         }
     }
 
-    private func moodEmoji(_ mood: String) -> String {
-        switch mood {
-        case "excited": return "energetic"
-        case "tired": return "subdued"
-        case "focused": return "direct"
-        case "grateful": return "thankful"
-        case "frustrated": return "determined"
-        default: return ""
-        }
-    }
-
-    private func moodDescription(_ mood: String) -> String {
-        switch mood {
-        case "excited": return "Great mood, optimistic, energy is up"
-        case "tired": return "End of long week, more subdued, shorter sentences"
-        case "focused": return "Work mode, direct, no fluff"
-        case "grateful": return "Thankful and reflective, appreciating small wins"
-        case "frustrated": return "Slightly frustrated at a problem, channeling it constructively"
-        default: return ""
-        }
-    }
-
-    private func loadPrompts() {
-        isLoadingPrompts = true
-        Task {
-            do {
-                let response = try await ApiClient.shared.getPrompts()
-                await MainActor.run {
-                    prompts = response.prompts
-                    selectedPrompt = prompts.first(where: { $0.is_default }) ?? prompts.first
-                    isLoadingPrompts = false
-                }
-            } catch {
-                await MainActor.run {
-                    errorMessage = "Failed to load prompts"
-                    isLoadingPrompts = false
-                }
-            }
-        }
-    }
-
     private func generatePost() {
         isLoading = true
         errorMessage = nil
@@ -244,9 +142,7 @@ struct GeneratePostView: View {
                 let response = try await ApiClient.shared.generateHumanPost(
                     topic: topic,
                     platform: selectedPlatform,
-                    mood: selectedMood,
-                    includeEmojis: includeEmojis,
-                    promptId: selectedPrompt?.prompt_id
+                    includeEmojis: includeEmojis
                 )
 
                 await MainActor.run {
