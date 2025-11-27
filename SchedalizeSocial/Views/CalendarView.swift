@@ -22,28 +22,10 @@ struct CalendarView: View {
         NavigationView {
             VStack(spacing: 0) {
                 // Header with action buttons
-                HStack {
-                    Button(action: {
-                        if incompleteTasks.isEmpty && completedTasks.isEmpty {
-                            importCalendar()
-                        } else {
-                            loadTasks()
-                        }
-                    }) {
-                        if isImporting {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                        } else {
-                            Image(systemName: (incompleteTasks.isEmpty && completedTasks.isEmpty) ? "calendar.badge.plus" : "arrow.clockwise")
-                                .font(.system(size: 20))
-                                .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
-                        }
-                    }
-                    .disabled(isLoading || isImporting)
+                if !completedTasks.isEmpty {
+                    HStack {
+                        Spacer()
 
-                    Spacer()
-
-                    if !completedTasks.isEmpty {
                         Button(action: { showCompleted.toggle() }) {
                             HStack(spacing: 4) {
                                 Image(systemName: showCompleted ? "eye.slash" : "eye")
@@ -54,10 +36,10 @@ struct CalendarView: View {
                             .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
                         }
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(Color.white)
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .background(Color.white)
 
                 List {
                 // Incomplete Tasks Section
@@ -109,9 +91,32 @@ struct CalendarView: View {
                                 .foregroundColor(.secondary)
                             Text("No tasks yet")
                                 .font(.headline)
-                            Text("Tap the + button to import 30-day calendar")
+                            Text("Import the 30-day calendar to get started")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+
+                            Button(action: importCalendar) {
+                                HStack(spacing: 8) {
+                                    if isImporting {
+                                        ProgressView()
+                                            .scaleEffect(0.8)
+                                            .tint(.white)
+                                        Text("Importing...")
+                                    } else {
+                                        Image(systemName: "calendar.badge.plus")
+                                        Text("Import Calendar")
+                                    }
+                                }
+                                .font(.system(size: 16, weight: .semibold))
+                                .padding(.horizontal, 24)
+                                .padding(.vertical, 12)
+                                .background(Color(red: 0.29, green: 0.42, blue: 0.98))
+                                .foregroundColor(.white)
+                                .cornerRadius(12)
+                            }
+                            .disabled(isImporting)
+                            .padding(.top, 8)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 40)
