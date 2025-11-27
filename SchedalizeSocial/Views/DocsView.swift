@@ -163,8 +163,9 @@ struct FormatText: View {
                 let text = trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "*"))
                 formatted.append(FormattedLine(id: index, type: .heading, text: text))
             } else if trimmed.hasPrefix("• ") || trimmed.hasPrefix("✓ ") {
-                // Bullet point - keep as is
-                formatted.append(FormattedLine(id: index, type: .bullet, text: trimmed))
+                // Bullet point - remove the bullet symbol
+                let text = trimmed.replacingOccurrences(of: "^[•✓]\\s*", with: "", options: .regularExpression)
+                formatted.append(FormattedLine(id: index, type: .bullet, text: text))
             } else if trimmed.isEmpty {
                 // Empty line
                 formatted.append(FormattedLine(id: index, type: .empty, text: ""))
