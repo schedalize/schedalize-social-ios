@@ -227,10 +227,8 @@ struct TaskRow: View {
             HStack(spacing: 12) {
                 // Platform icon
                 if let platform = task.platform {
-                    Image(systemName: platformIcon(platform))
-                        .font(.title3)
-                        .foregroundColor(platformColor(platform))
-                        .frame(width: 32)
+                    platformIconView(platform)
+                        .frame(width: 32, height: 32)
                 }
 
                 // Content
@@ -273,23 +271,25 @@ struct TaskRow: View {
         .buttonStyle(.plain)
     }
 
-    private func platformIcon(_ platform: String) -> String {
+    @ViewBuilder
+    private func platformIconView(_ platform: String) -> some View {
         switch platform.lowercased() {
-        case "instagram": return "camera.fill"
-        case "twitter": return "at"
-        case "tiktok": return "play.rectangle.fill"
-        case "linkedin": return "briefcase.fill"
-        default: return "globe"
-        }
-    }
-
-    private func platformColor(_ platform: String) -> Color {
-        switch platform.lowercased() {
-        case "instagram": return .pink
-        case "twitter": return .blue
-        case "tiktok": return .primary
-        case "linkedin": return .blue
-        default: return .secondary
+        case "instagram":
+            InstagramIconView(color: .pink, size: 20)
+        case "tiktok":
+            TikTokIconView(color: .primary, size: 20)
+        case "twitter":
+            Image(systemName: "at")
+                .font(.title3)
+                .foregroundColor(.blue)
+        case "linkedin":
+            Image(systemName: "briefcase.fill")
+                .font(.title3)
+                .foregroundColor(.blue)
+        default:
+            Image(systemName: "globe")
+                .font(.title3)
+                .foregroundColor(.secondary)
         }
     }
 }
