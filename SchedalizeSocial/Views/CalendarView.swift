@@ -8,17 +8,15 @@
 import SwiftUI
 
 struct CalendarView: View {
-    @State private var tasks: [CalendarTask] = []
-    @State private var todayTasks: [CalendarTask] = []
+    @State private var incompleteTasks: [CalendarTask] = []
+    @State private var completedTasks: [CalendarTask] = []
     @State private var isLoading = false
-    @State private var isPushing = false
     @State private var errorMessage: String?
-    @State private var showPushConfirmation = false
-    @State private var pushResult: PushTasksResponse?
     @State private var selectedTask: CalendarTask?
     @State private var isImporting = false
     @State private var showImportSuccess = false
     @State private var importedCount = 0
+    @State private var showCompleted = false
 
     var body: some View {
         NavigationView {
@@ -26,7 +24,7 @@ struct CalendarView: View {
                 // Header with action buttons
                 HStack {
                     Button(action: {
-                        if tasks.isEmpty && todayTasks.isEmpty {
+                        if incompleteTasks.isEmpty && completedTasks.isEmpty {
                             importCalendar()
                         } else {
                             loadTasks()
@@ -36,7 +34,7 @@ struct CalendarView: View {
                             ProgressView()
                                 .scaleEffect(0.8)
                         } else {
-                            Image(systemName: tasks.isEmpty && todayTasks.isEmpty ? "calendar.badge.plus" : "arrow.clockwise")
+                            Image(systemName: (incompleteTasks.isEmpty && completedTasks.isEmpty) ? "calendar.badge.plus" : "arrow.clockwise")
                                 .font(.system(size: 20))
                                 .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
                         }
@@ -45,32 +43,34 @@ struct CalendarView: View {
 
                     Spacer()
 
-                    Button(action: { showPushConfirmation = true }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "arrow.right.circle")
-                            Text("Push")
+                    if !completedTasks.isEmpty {
+                        Button(action: { showCompleted.toggle() }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: showCompleted ? "eye.slash" : "eye")
+                                Text(showCompleted ? "Hide" : "Show")
+                                Text("(\(completedTasks.count))")
+                            }
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
                         }
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(todayTasks.isEmpty ? .gray : Color(red: 0.29, green: 0.42, blue: 0.98))
                     }
-                    .disabled(isPushing || todayTasks.isEmpty)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
                 .background(Color.white)
 
                 List {
-                // Today's Tasks Section
-                if !todayTasks.isEmpty {
+                // Incomplete Tasks Section
+                if !incompleteTasks.isEmpty {
                     Section {
-                        ForEach(todayTasks) { task in
-                            TaskRow(task: task, onTap: { selectedTask = task })
+                        ForEach(incompleteTasks) { task in
+                            TaskRow(task: task, onTap: { selectedTask = task }, showDate: false)
                         }
                     } header: {
                         HStack {
-                            Text("Today's Tasks")
+                            Text("Tasks to Complete")
                             Spacer()
-                            Text("\(todayTasks.count)")
+                            Text("\(incompleteTasks.count)")
                                 .font(.caption)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 2)
@@ -80,25 +80,34 @@ struct CalendarView: View {
                     }
                 }
 
-                // Upcoming Tasks Section
-                if !tasks.filter({ !isToday($0.scheduled_date) }).isEmpty {
+                // Completed Tasks Section
+                if showCompleted && !completedTasks.isEmpty {
                     Section {
-                        ForEach(tasks.filter { !isToday($0.scheduled_date) }) { task in
-                            TaskRow(task: task, onTap: { selectedTask = task })
+                        ForEach(completedTasks) { task in
+                            CompletedTaskRow(task: task)
                         }
                     } header: {
-                        Text("Upcoming")
+                        HStack {
+                            Text("Completed")
+                            Spacer()
+                            Text("\(completedTasks.count)")
+                                .font(.caption)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(Color.green.opacity(0.2))
+                                .cornerRadius(10)
+                        }
                     }
                 }
 
                 // Empty State
-                if tasks.isEmpty && todayTasks.isEmpty && !isLoading {
+                if incompleteTasks.isEmpty && completedTasks.isEmpty && !isLoading {
                     Section {
                         VStack(spacing: 16) {
                             Image(systemName: "calendar.badge.plus")
                                 .font(.system(size: 48))
                                 .foregroundColor(.secondary)
-                            Text("No tasks scheduled")
+                            Text("No tasks yet")
                                 .font(.headline)
                             Text("Tap the + button to import 30-day calendar")
                                 .font(.subheadline)
@@ -114,24 +123,6 @@ struct CalendarView: View {
             .refreshable {
                 await loadTasksAsync()
             }
-            .alert("Push Tasks", isPresented: $showPushConfirmation) {
-                Button("Cancel", role: .cancel) { }
-                Button("Push Forward", role: .destructive) {
-                    pushTasks()
-                }
-            } message: {
-                Text("This will push all incomplete tasks (including today's) forward by 1 day. This action cannot be undone.")
-            }
-            .alert("Tasks Pushed", isPresented: .init(
-                get: { pushResult != nil },
-                set: { if !$0 { pushResult = nil } }
-            )) {
-                Button("OK") { pushResult = nil }
-            } message: {
-                if let result = pushResult {
-                    Text(result.message)
-                }
-            }
             .sheet(item: $selectedTask) { task in
                 TaskDetailSheet(
                     task: task,
@@ -143,7 +134,7 @@ struct CalendarView: View {
             .alert("Calendar Imported", isPresented: $showImportSuccess) {
                 Button("OK") { }
             } message: {
-                Text("Successfully imported \(importedCount) tasks for the next 30 days.")
+                Text("Successfully imported \(importedCount) tasks.")
             }
             .alert("Error", isPresented: .init(
                 get: { errorMessage != nil },
@@ -161,28 +152,6 @@ struct CalendarView: View {
         }
     }
 
-    private func isToday(_ dateString: String) -> Bool {
-        let isoFormatter = ISO8601DateFormatter()
-        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-
-        var date: Date?
-        date = isoFormatter.date(from: dateString)
-
-        if date == nil {
-            let simpleFormatter = DateFormatter()
-            simpleFormatter.dateFormat = "yyyy-MM-dd"
-            date = simpleFormatter.date(from: dateString)
-        }
-
-        if date == nil {
-            let isoFormatter2 = ISO8601DateFormatter()
-            date = isoFormatter2.date(from: dateString)
-        }
-
-        guard let parsedDate = date else { return false }
-        return Calendar.current.isDateInToday(parsedDate)
-    }
-
     private func loadTasks() {
         Task {
             await loadTasksAsync()
@@ -194,38 +163,22 @@ struct CalendarView: View {
         errorMessage = nil
 
         do {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd"
-            let now = Date()
-            let endDate = Calendar.current.date(byAdding: .day, value: 30, to: now) ?? now
-            let startDateStr = formatter.string(from: now)
-            let endDateStr = formatter.string(from: endDate)
+            // Load all tasks, sorted by day_number
+            let allTasksResponse = try await ApiClient.shared.getCalendarTasks(
+                startDate: nil,
+                endDate: nil,
+                includeCompleted: true
+            )
 
-            async let todayResponse = ApiClient.shared.getTodayTasks()
-            async let allResponse = ApiClient.shared.getCalendarTasks(startDate: startDateStr, endDate: endDateStr)
-
-            let (todayResult, allResult) = try await (todayResponse, allResponse)
-            todayTasks = todayResult.tasks
-            tasks = allResult.tasks
+            // Separate into incomplete and completed
+            let allTasks = allTasksResponse.tasks.sorted { ($0.day_number ?? 0) < ($1.day_number ?? 0) }
+            incompleteTasks = allTasks.filter { !$0.is_completed }
+            completedTasks = allTasks.filter { $0.is_completed }
         } catch {
             errorMessage = error.localizedDescription
         }
 
         isLoading = false
-    }
-
-    private func pushTasks() {
-        isPushing = true
-        Task {
-            do {
-                let result = try await ApiClient.shared.pushTasks()
-                pushResult = result
-                await loadTasksAsync()
-            } catch {
-                errorMessage = error.localizedDescription
-            }
-            isPushing = false
-        }
     }
 
     private func importCalendar() {
@@ -262,6 +215,7 @@ struct CalendarView: View {
 struct TaskRow: View {
     let task: CalendarTask
     let onTap: () -> Void
+    let showDate: Bool
 
     var body: some View {
         Button(action: onTap) {
@@ -276,20 +230,12 @@ struct TaskRow: View {
 
                 // Content
                 VStack(alignment: .leading, spacing: 4) {
-                    // Title row
-                    HStack {
-                        Text(task.title)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundColor(.primary)
-                            .lineLimit(1)
-
-                        Spacer()
-
-                        Text(formatDate(task.scheduled_date))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+                    // Title
+                    Text(task.title)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                        .lineLimit(2)
 
                     // Tags row
                     HStack(spacing: 6) {
@@ -309,6 +255,13 @@ struct TaskRow: View {
                         }
                     }
                 }
+
+                Spacer()
+
+                // Chevron
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
             .padding(.vertical, 4)
         }
@@ -334,34 +287,71 @@ struct TaskRow: View {
         default: return .secondary
         }
     }
+}
 
-    private func formatDate(_ dateString: String) -> String {
-        let isoFormatter = ISO8601DateFormatter()
-        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+struct CompletedTaskRow: View {
+    let task: CalendarTask
 
-        var date: Date?
-        date = isoFormatter.date(from: dateString)
+    var body: some View {
+        HStack(spacing: 12) {
+            // Checkmark icon
+            Image(systemName: "checkmark.circle.fill")
+                .font(.title3)
+                .foregroundColor(.green)
+                .frame(width: 32)
 
-        if date == nil {
-            let simpleFormatter = DateFormatter()
-            simpleFormatter.dateFormat = "yyyy-MM-dd"
-            date = simpleFormatter.date(from: dateString)
+            // Content
+            VStack(alignment: .leading, spacing: 4) {
+                // Title
+                Text(task.title)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .strikethrough()
+                    .lineLimit(2)
+
+                // Tags and completion date
+                HStack(spacing: 6) {
+                    if let dayNum = task.day_number {
+                        Text("Day \(dayNum)")
+                            .font(.caption2)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.green.opacity(0.1))
+                            .cornerRadius(4)
+                    }
+
+                    if let completedAt = task.completed_at {
+                        Text("Completed \(formatCompletionDate(completedAt))")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+
+            Spacer()
         }
+        .padding(.vertical, 4)
+    }
+
+    private func formatCompletionDate(_ dateString: String) -> String {
+        let isoFormatter = ISO8601DateFormatter()
+        var date = isoFormatter.date(from: dateString)
 
         if date == nil {
             let isoFormatter2 = ISO8601DateFormatter()
+            isoFormatter2.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
             date = isoFormatter2.date(from: dateString)
         }
 
-        guard let parsedDate = date else { return dateString }
+        guard let parsedDate = date else { return "recently" }
 
         if Calendar.current.isDateInToday(parsedDate) {
-            return "Today"
-        } else if Calendar.current.isDateInTomorrow(parsedDate) {
-            return "Tomorrow"
+            return "today"
+        } else if Calendar.current.isDateInYesterday(parsedDate) {
+            return "yesterday"
         } else {
             let displayFormatter = DateFormatter()
-            displayFormatter.dateFormat = "MMM d"
+            displayFormatter.dateStyle = .short
             return displayFormatter.string(from: parsedDate)
         }
     }
