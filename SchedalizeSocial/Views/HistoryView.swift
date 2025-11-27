@@ -165,8 +165,7 @@ struct HistoryView: View {
                     }
                 }
             }
-            .navigationTitle("History")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarHidden(true)
             .refreshable {
                 await store.loadAllHistory()
             }

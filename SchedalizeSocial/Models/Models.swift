@@ -255,9 +255,7 @@ struct PromptsResponse: Codable {
 struct GenerateHumanPostRequest: Codable {
     let topic: String
     let platform: String
-    let mood: String
     let include_emojis: Bool
-    let prompt_id: String?
 }
 
 struct GenerateHumanPostResponse: Codable {
@@ -265,9 +263,6 @@ struct GenerateHumanPostResponse: Codable {
     let post_id: String
     let content: String
     let platform: String
-    let mood: String
-    let prompt_name: String?
-    let model: String?
     let tokens_used: Int?
 }
 
@@ -321,8 +316,6 @@ struct GenerateTaskContentResponse: Codable {
     let success: Bool
     let task_id: String
     let content: String
-    let mood: String
-    let prompt_name: String?
     let tokens_used: Int?
 }
 

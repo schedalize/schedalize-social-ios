@@ -38,7 +38,6 @@ struct MainView: View {
     ]
 
     @State private var templatesExpanded = false
-    @State private var showGeneratePost = false
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -47,18 +46,18 @@ struct MainView: View {
                 ScrollView {
                     VStack(spacing: 20) {
                         // Header
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 4) {
                             Text("Generate Reply")
-                                .font(.system(size: 24, weight: .bold))
+                                .font(.system(size: 22, weight: .bold))
                                 .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
 
                             Text("Create AI-powered responses")
-                                .font(.system(size: 14))
+                                .font(.system(size: 13))
                                 .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 20)
-                        .padding(.top, 20)
+                        .padding(.top, 16)
 
                         // Quick Templates Section
                         VStack(alignment: .leading, spacing: 8) {
@@ -159,46 +158,51 @@ struct MainView: View {
                         }
                         .padding(.horizontal, 20)
 
-                        // Include Emoji Toggle
+                        // Emoji Toggle
                         HStack {
-                            Image(systemName: "face.smiling")
-                                .font(.system(size: 18))
-                                .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
                             Text("Include Emojis")
                                 .font(.system(size: 14, weight: .medium))
                                 .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
                             Spacer()
                             Toggle("", isOn: $includeEmojis)
                                 .labelsHidden()
-                                .tint(Color(red: 0.29, green: 0.42, blue: 0.98))
+                                .tint(Color(red: 0.6, green: 0.2, blue: 0.8))
                         }
                         .padding(.horizontal, 20)
 
                         // Generate Button
                         Button(action: generateReplies) {
-                            if isLoading {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 50)
-                            } else {
-                                Text("Generate Replies")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 50)
+                            HStack(spacing: 8) {
+                                if isLoading {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                        .tint(.white)
+                                    Text("Generating...")
+                                } else {
+                                    Image(systemName: "sparkles")
+                                    Text("Generate Reply")
+                                }
                             }
+                            .font(.system(size: 16, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(
+                                LinearGradient(
+                                    colors: message.isEmpty ? [Color.gray.opacity(0.5)] : [Color(red: 0.6, green: 0.2, blue: 0.8), Color(red: 0.8, green: 0.3, blue: 0.6)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
                         }
-                        .background(Color(red: 0.29, green: 0.42, blue: 0.98))
-                        .cornerRadius(12)
                         .disabled(isLoading || message.isEmpty)
-                        .opacity(message.isEmpty ? 0.6 : 1.0)
                         .padding(.horizontal, 20)
 
                         // Generated Replies
                         if !generatedReplies.isEmpty {
                             VStack(alignment: .leading, spacing: 12) {
-                                Text("Generated Replies")
+                                Text("Generated Reply")
                                     .font(.system(size: 18, weight: .bold))
                                     .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
                                     .padding(.horizontal, 20)
@@ -213,16 +217,7 @@ struct MainView: View {
                     .padding(.bottom, 20)
                 }
                 .background(Color(red: 0.96, green: 0.97, blue: 0.98))
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(action: { showGeneratePost = true }) {
-                            Label("New Post", systemImage: "plus.circle.fill")
-                        }
-                    }
-                }
-                .sheet(isPresented: $showGeneratePost) {
-                    GeneratePostView()
-                }
+                .navigationBarHidden(true)
             }
             .tabItem {
                 Label("Replies", systemImage: "bubble.left.and.bubble.right.fill")
@@ -318,27 +313,19 @@ struct ReplyCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(reply.tone.capitalized)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color(red: 0.29, green: 0.42, blue: 0.98).opacity(0.1))
-                    .cornerRadius(6)
-
-                Spacer()
-
-                Button(action: { copyToClipboard(reply.text) }) {
-                    Image(systemName: "doc.on.doc")
-                        .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
-                }
-            }
-
             Text(reply.text)
                 .font(.system(size: 14))
                 .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
                 .fixedSize(horizontal: false, vertical: true)
+
+            Button(action: { copyToClipboard(reply.text) }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "doc.on.doc")
+                    Text("Copy")
+                }
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
+            }
         }
         .padding(16)
         .background(Color.white)

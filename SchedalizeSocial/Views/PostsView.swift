@@ -36,10 +36,22 @@ struct PostsView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
+                // Header with + button
+                HStack {
+                    Spacer()
+                    Button(action: { showAddPost = true }) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 28))
+                            .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+
                 // Calendar Header
                 CalendarHeaderView(currentMonth: $currentMonth)
                     .padding(.horizontal, 20)
-                    .padding(.vertical, 16)
+                    .padding(.vertical, 12)
                     .background(Color.white)
 
                 if isLoading {
@@ -128,16 +140,7 @@ struct PostsView: View {
                 }
             }
             .background(Color(red: 0.96, green: 0.97, blue: 0.98))
-            .navigationTitle("Schedule (\(scheduledPosts.count))")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showAddPost = true }) {
-                        Image(systemName: "plus.circle.fill")
-                            .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
-                    }
-                }
-            }
+            .navigationBarHidden(true)
             .refreshable {
                 await loadPosts()
             }

@@ -73,28 +73,9 @@ class ApiClient {
         try await delete(endpoint: "/api/v1/posts/scheduled/\(postId)", requiresAuth: true)
     }
 
-    // MARK: - Quality Evaluation
-    func evaluateQuality(content: String, platform: String, postType: String? = nil, context: String? = nil) async throws -> QualityEvaluationResponse {
-        let request = QualityEvaluateRequest(content: content, platform: platform, post_type: postType, context: context)
-        return try await post(endpoint: "/api/v1/quality/evaluate", body: request, requiresAuth: true)
-    }
-
-    func quickQualityCheck(content: String, platform: String) async throws -> QuickCheckResponse {
-        let request = QuickCheckRequest(content: content, platform: platform)
-        return try await post(endpoint: "/api/v1/quality/quick-check", body: request, requiresAuth: true)
-    }
-
-    func getQualityHistory(limit: Int = 20, offset: Int = 0) async throws -> QualityHistoryResponse {
-        return try await get(endpoint: "/api/v1/quality/history?limit=\(limit)&offset=\(offset)", requiresAuth: true)
-    }
-
-    // MARK: - Prompts
-    func getPrompts() async throws -> PromptsResponse {
-        return try await get(endpoint: "/api/v1/posts/prompts", requiresAuth: true)
-    }
-
-    func generateHumanPost(topic: String, platform: String, mood: String, includeEmojis: Bool = true, promptId: String? = nil) async throws -> GenerateHumanPostResponse {
-        let request = GenerateHumanPostRequest(topic: topic, platform: platform, mood: mood, include_emojis: includeEmojis, prompt_id: promptId)
+    // MARK: - Post Generation
+    func generateHumanPost(topic: String, platform: String, includeEmojis: Bool = true) async throws -> GenerateHumanPostResponse {
+        let request = GenerateHumanPostRequest(topic: topic, platform: platform, include_emojis: includeEmojis)
         return try await post(endpoint: "/api/v1/posts/generate-human", body: request, requiresAuth: true)
     }
 
@@ -132,14 +113,11 @@ class ApiClient {
         return response.task
     }
 
-    func generateTaskContent(taskId: String, mood: String? = nil, promptId: String? = nil, length: String? = nil, includeEmojis: Bool? = nil) async throws -> GenerateTaskContentResponse {
+    func generateTaskContent(taskId: String, includeEmojis: Bool? = nil) async throws -> GenerateTaskContentResponse {
         struct GenerateRequest: Codable {
-            let mood: String?
-            let prompt_id: String?
-            let length: String?
             let include_emojis: Bool?
         }
-        let request = GenerateRequest(mood: mood, prompt_id: promptId, length: length, include_emojis: includeEmojis)
+        let request = GenerateRequest(include_emojis: includeEmojis)
         return try await post(endpoint: "/api/v1/calendar/tasks/\(taskId)/generate", body: request, requiresAuth: true)
     }
 

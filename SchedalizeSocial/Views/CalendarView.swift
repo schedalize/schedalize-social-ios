@@ -10,7 +10,6 @@ import SwiftUI
 struct CalendarView: View {
     @State private var tasks: [CalendarTask] = []
     @State private var todayTasks: [CalendarTask] = []
-    @State private var prompts: [Prompt] = []
     @State private var isLoading = false
     @State private var isPushing = false
     @State private var errorMessage: String?
@@ -23,7 +22,44 @@ struct CalendarView: View {
 
     var body: some View {
         NavigationView {
-            List {
+            VStack(spacing: 0) {
+                // Header with action buttons
+                HStack {
+                    Button(action: {
+                        if tasks.isEmpty && todayTasks.isEmpty {
+                            importCalendar()
+                        } else {
+                            loadTasks()
+                        }
+                    }) {
+                        if isImporting {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: tasks.isEmpty && todayTasks.isEmpty ? "calendar.badge.plus" : "arrow.clockwise")
+                                .font(.system(size: 20))
+                                .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
+                        }
+                    }
+                    .disabled(isLoading || isImporting)
+
+                    Spacer()
+
+                    Button(action: { showPushConfirmation = true }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.right.circle")
+                            Text("Push")
+                        }
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(todayTasks.isEmpty ? .gray : Color(red: 0.29, green: 0.42, blue: 0.98))
+                    }
+                    .disabled(isPushing || todayTasks.isEmpty)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(Color.white)
+
+                List {
                 // Today's Tasks Section
                 if !todayTasks.isEmpty {
                     Section {
@@ -73,36 +109,8 @@ struct CalendarView: View {
                     }
                 }
             }
-            .navigationTitle("Content Tasks")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showPushConfirmation = true }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "arrow.right.circle")
-                            Text("Push")
-                        }
-                    }
-                    .disabled(isPushing || todayTasks.isEmpty)
-                }
-
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: {
-                        if tasks.isEmpty && todayTasks.isEmpty {
-                            importCalendar()
-                        } else {
-                            loadTasks()
-                        }
-                    }) {
-                        if isImporting {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                        } else {
-                            Image(systemName: tasks.isEmpty && todayTasks.isEmpty ? "calendar.badge.plus" : "arrow.clockwise")
-                        }
-                    }
-                    .disabled(isLoading || isImporting)
-                }
             }
+            .navigationBarHidden(true)
             .refreshable {
                 await loadTasksAsync()
             }
@@ -127,10 +135,6 @@ struct CalendarView: View {
             .sheet(item: $selectedTask) { task in
                 TaskDetailSheet(
                     task: task,
-                    prompts: prompts,
-                    onGenerate: { mood, promptId in
-                        // Generation happens inside the sheet now
-                    },
                     onComplete: { generatedContent in
                         completeTask(task, generatedContent: generatedContent)
                     }
@@ -158,7 +162,6 @@ struct CalendarView: View {
     }
 
     private func isToday(_ dateString: String) -> Bool {
-        // Try ISO8601 format first
         let isoFormatter = ISO8601DateFormatter()
         isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
 
@@ -191,7 +194,6 @@ struct CalendarView: View {
         errorMessage = nil
 
         do {
-            // Calculate 30-day date range
             let formatter = DateFormatter()
             formatter.dateFormat = "yyyy-MM-dd"
             let now = Date()
@@ -201,12 +203,10 @@ struct CalendarView: View {
 
             async let todayResponse = ApiClient.shared.getTodayTasks()
             async let allResponse = ApiClient.shared.getCalendarTasks(startDate: startDateStr, endDate: endDateStr)
-            async let promptsResponse = ApiClient.shared.getPrompts()
 
-            let (todayResult, allResult, promptsResult) = try await (todayResponse, allResponse, promptsResponse)
+            let (todayResult, allResult) = try await (todayResponse, allResponse)
             todayTasks = todayResult.tasks
             tasks = allResult.tasks
-            prompts = promptsResult.prompts
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -302,15 +302,6 @@ struct TaskRow: View {
                                 .cornerRadius(4)
                         }
 
-                        if let mood = task.mood {
-                            Text(mood.capitalized)
-                                .font(.caption2)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.purple.opacity(0.1))
-                                .cornerRadius(4)
-                        }
-
                         if let platform = task.platform {
                             Text(platform.capitalized)
                                 .font(.caption2)
@@ -345,21 +336,18 @@ struct TaskRow: View {
     }
 
     private func formatDate(_ dateString: String) -> String {
-        // Try ISO8601 format first (from API: 2025-11-26T00:00:00.000Z)
         let isoFormatter = ISO8601DateFormatter()
         isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
 
         var date: Date?
         date = isoFormatter.date(from: dateString)
 
-        // Fallback to simple date format
         if date == nil {
             let simpleFormatter = DateFormatter()
             simpleFormatter.dateFormat = "yyyy-MM-dd"
             date = simpleFormatter.date(from: dateString)
         }
 
-        // Fallback to ISO without fractional seconds
         if date == nil {
             let isoFormatter2 = ISO8601DateFormatter()
             date = isoFormatter2.date(from: dateString)
@@ -381,21 +369,13 @@ struct TaskRow: View {
 
 struct TaskDetailSheet: View {
     let task: CalendarTask
-    let prompts: [Prompt]
-    let onGenerate: (String?, String?) -> Void  // (mood, promptId)
-    let onComplete: (String?) -> Void  // generatedContent
+    let onComplete: (String?) -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @State private var selectedMood: String = ""
-    @State private var selectedPrompt: Prompt?
-    @State private var selectedLength: String = "normal"
     @State private var useEmojis: Bool = true
     @State private var generatedContent: String?
     @State private var isGenerating = false
     @State private var showCopied = false
-
-    private let moods = ["excited", "tired", "focused", "grateful", "frustrated"]
-    private let lengths = ["brief", "normal", "long"]
 
     var body: some View {
         NavigationView {
@@ -441,115 +421,40 @@ struct TaskDetailSheet: View {
                         }
                     }
 
-                    // Generation Settings
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Generation Settings")
-                            .font(.headline)
-
-                        // Mood Picker
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Mood")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(moods, id: \.self) { mood in
-                                        Button(action: { selectedMood = mood }) {
-                                            Text(mood.capitalized)
-                                                .font(.caption)
-                                                .padding(.horizontal, 12)
-                                                .padding(.vertical, 8)
-                                                .background(selectedMood == mood ? Color.purple : Color(.systemGray5))
-                                                .foregroundColor(selectedMood == mood ? .white : .primary)
-                                                .cornerRadius(16)
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                            }
-                        }
-
-                        // Prompt Picker
-                        if !prompts.isEmpty {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Prompt Style")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 8) {
-                                        ForEach(prompts) { prompt in
-                                            Button(action: { selectedPrompt = prompt }) {
-                                                VStack(alignment: .leading, spacing: 2) {
-                                                    Text(prompt.name)
-                                                        .font(.caption)
-                                                        .fontWeight(.medium)
-                                                    if let score = prompt.test_score {
-                                                        Text(String(format: "%.0f%%", score))
-                                                            .font(.caption2)
-                                                            .foregroundColor(selectedPrompt?.prompt_id == prompt.prompt_id ? .white.opacity(0.8) : .secondary)
-                                                    }
-                                                }
-                                                .padding(.horizontal, 12)
-                                                .padding(.vertical, 8)
-                                                .background(selectedPrompt?.prompt_id == prompt.prompt_id ? Color.blue : Color(.systemGray5))
-                                                .foregroundColor(selectedPrompt?.prompt_id == prompt.prompt_id ? .white : .primary)
-                                                .cornerRadius(12)
-                                            }
-                                            .buttonStyle(.plain)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Length Picker
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Length")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            HStack(spacing: 8) {
-                                ForEach(lengths, id: \.self) { length in
-                                    Button(action: { selectedLength = length }) {
-                                        Text(length.capitalized)
-                                            .font(.caption)
-                                            .padding(.horizontal, 12)
-                                            .padding(.vertical, 8)
-                                            .background(selectedLength == length ? Color.orange : Color(.systemGray5))
-                                            .foregroundColor(selectedLength == length ? .white : .primary)
-                                            .cornerRadius(16)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                        }
-
-                        // Emoji Toggle
-                        Toggle(isOn: $useEmojis) {
-                            HStack {
-                                Text("Include Emojis")
-                                    .font(.subheadline)
-                                Text("😊")
-                            }
-                        }
-                        .tint(.purple)
+                    // Emoji Toggle
+                    HStack {
+                        Text("Include Emojis")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
+                        Spacer()
+                        Toggle("", isOn: $useEmojis)
+                            .labelsHidden()
+                            .tint(Color(red: 0.6, green: 0.2, blue: 0.8))
                     }
 
                     // Generate Button
                     Button(action: generateContent) {
-                        HStack {
+                        HStack(spacing: 8) {
                             if isGenerating {
                                 ProgressView()
                                     .scaleEffect(0.8)
                                     .tint(.white)
                                 Text("Generating...")
                             } else {
-                                Image(systemName: "wand.and.stars")
-                                Text("Generate Content")
+                                Image(systemName: "sparkles")
+                                Text("Generate")
                             }
                         }
+                        .font(.system(size: 16, weight: .semibold))
                         .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.purple)
+                        .padding(.vertical, 16)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(red: 0.6, green: 0.2, blue: 0.8), Color(red: 0.8, green: 0.3, blue: 0.6)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
                         .foregroundColor(.white)
                         .cornerRadius(12)
                     }
@@ -557,10 +462,11 @@ struct TaskDetailSheet: View {
 
                     // Generated Content
                     if let content = generatedContent ?? task.generated_content {
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 12) {
                             HStack {
                                 Text("Generated Content")
-                                    .font(.headline)
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
                                 Spacer()
                                 Button(action: {
                                     UIPasteboard.general.string = content
@@ -569,18 +475,26 @@ struct TaskDetailSheet: View {
                                         showCopied = false
                                     }
                                 }) {
-                                    Label(showCopied ? "Copied!" : "Copy", systemImage: showCopied ? "checkmark" : "doc.on.doc")
-                                        .font(.caption)
+                                    HStack(spacing: 4) {
+                                        Image(systemName: showCopied ? "checkmark" : "doc.on.doc")
+                                        Text(showCopied ? "Copied!" : "Copy")
+                                    }
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(showCopied ? .green : Color(red: 0.29, green: 0.42, blue: 0.98))
                                 }
-                                .buttonStyle(.bordered)
                             }
 
                             Text(content)
-                                .font(.body)
-                                .padding()
+                                .font(.system(size: 15))
+                                .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
+                                .padding(16)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Color(.systemGray6))
-                                .cornerRadius(8)
+                                .background(Color.white)
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color(red: 0.29, green: 0.42, blue: 0.98).opacity(0.3), lineWidth: 1)
+                                )
                         }
                     }
 
@@ -588,6 +502,7 @@ struct TaskDetailSheet: View {
                 }
                 .padding()
             }
+            .background(Color(red: 0.96, green: 0.97, blue: 0.98))
             .navigationTitle("Task Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -604,10 +519,6 @@ struct TaskDetailSheet: View {
                 }
             }
         }
-        .onAppear {
-            selectedMood = task.mood ?? "focused"
-            selectedPrompt = prompts.first(where: { $0.is_default }) ?? prompts.first
-        }
     }
 
     private func generateContent() {
@@ -616,9 +527,6 @@ struct TaskDetailSheet: View {
             do {
                 let result = try await ApiClient.shared.generateTaskContent(
                     taskId: task.task_id,
-                    mood: selectedMood.isEmpty ? nil : selectedMood,
-                    promptId: selectedPrompt?.prompt_id,
-                    length: selectedLength,
                     includeEmojis: useEmojis
                 )
                 generatedContent = result.content
