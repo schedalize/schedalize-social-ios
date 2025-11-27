@@ -278,10 +278,8 @@ struct TaskRow: View {
             InstagramIconView(color: .pink, size: 20)
         case "tiktok":
             TikTokIconView(color: .primary, size: 20)
-        case "twitter":
-            Image(systemName: "at")
-                .font(.title3)
-                .foregroundColor(.blue)
+        case "x", "twitter":
+            XIconView(color: .black, size: 20)
         case "linkedin":
             Image(systemName: "briefcase.fill")
                 .font(.title3)

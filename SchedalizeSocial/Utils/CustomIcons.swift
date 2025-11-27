@@ -210,3 +210,44 @@ struct TikTokIconView: View {
             .frame(width: size, height: size)
     }
 }
+
+struct XIcon: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let width = rect.width
+        let height = rect.height
+
+        // Scale factors (based on 24x24 viewbox)
+        let scaleX = width / 24
+        let scaleY = height / 24
+
+        // X logo path - bold angular X
+        // Top-right to bottom-left stroke
+        path.move(to: CGPoint(x: 18.5 * scaleX, y: 3 * scaleY))
+        path.addLine(to: CGPoint(x: 13.5 * scaleX, y: 10.5 * scaleY))
+        path.addLine(to: CGPoint(x: 18.5 * scaleX, y: 18 * scaleY))
+        path.addLine(to: CGPoint(x: 15.5 * scaleX, y: 21 * scaleY))
+        path.addLine(to: CGPoint(x: 10.5 * scaleX, y: 13.5 * scaleY))
+        path.addLine(to: CGPoint(x: 5.5 * scaleX, y: 21 * scaleY))
+        path.addLine(to: CGPoint(x: 2.5 * scaleX, y: 18 * scaleY))
+        path.addLine(to: CGPoint(x: 7.5 * scaleX, y: 10.5 * scaleY))
+        path.addLine(to: CGPoint(x: 2.5 * scaleX, y: 3 * scaleY))
+        path.addLine(to: CGPoint(x: 5.5 * scaleX, y: 0 * scaleY))
+        path.addLine(to: CGPoint(x: 10.5 * scaleX, y: 7.5 * scaleY))
+        path.addLine(to: CGPoint(x: 15.5 * scaleX, y: 0 * scaleY))
+        path.closeSubpath()
+
+        return path
+    }
+}
+
+struct XIconView: View {
+    var color: Color = .black
+    var size: CGFloat = 24
+
+    var body: some View {
+        XIcon()
+            .fill(color)
+            .frame(width: size, height: size)
+    }
+}
