@@ -153,26 +153,49 @@ struct FormatText: View {
         var formatted: [FormattedLine] = []
 
         for (index, line) in lines.enumerated() {
-            if line.hasPrefix("━━━") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+
+            if trimmed.hasPrefix("━━━") {
                 // Divider
                 formatted.append(FormattedLine(id: index, type: .divider, text: ""))
-            } else if line.hasPrefix("**") && line.hasSuffix("**") {
-                // Bold heading
-                let text = line.trimmingCharacters(in: CharacterSet(charactersIn: "*"))
+            } else if trimmed.hasPrefix("**") && trimmed.hasSuffix("**") {
+                // Bold heading - strip the **
+                let text = trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "*"))
                 formatted.append(FormattedLine(id: index, type: .heading, text: text))
-            } else if line.hasPrefix("• ") || line.hasPrefix("✓ ") {
-                // Bullet point
-                formatted.append(FormattedLine(id: index, type: .bullet, text: line))
-            } else if line.trimmingCharacters(in: .whitespaces).isEmpty {
+            } else if trimmed.hasPrefix("• ") || trimmed.hasPrefix("✓ ") {
+                // Bullet point - keep as is
+                formatted.append(FormattedLine(id: index, type: .bullet, text: trimmed))
+            } else if trimmed.isEmpty {
                 // Empty line
                 formatted.append(FormattedLine(id: index, type: .empty, text: ""))
             } else {
-                // Normal text
-                formatted.append(FormattedLine(id: index, type: .normal, text: line))
+                // Normal text - clean up inline markdown
+                let cleanText = cleanMarkdown(trimmed)
+                formatted.append(FormattedLine(id: index, type: .normal, text: cleanText))
             }
         }
 
         return formatted
+    }
+
+    private func cleanMarkdown(_ text: String) -> String {
+        var cleaned = text
+
+        // Remove inline bold (**text** or __text__)
+        cleaned = cleaned.replacingOccurrences(of: "\\*\\*([^*]+)\\*\\*", with: "$1", options: .regularExpression)
+        cleaned = cleaned.replacingOccurrences(of: "__([^_]+)__", with: "$1", options: .regularExpression)
+
+        // Remove inline italic (*text* or _text_) - but be careful with single asterisks
+        cleaned = cleaned.replacingOccurrences(of: "\\*([^*]+)\\*", with: "$1", options: .regularExpression)
+        cleaned = cleaned.replacingOccurrences(of: "_([^_]+)_", with: "$1", options: .regularExpression)
+
+        // Remove code backticks (`text`)
+        cleaned = cleaned.replacingOccurrences(of: "`([^`]+)`", with: "$1", options: .regularExpression)
+
+        // Remove links [text](url) - keep just text
+        cleaned = cleaned.replacingOccurrences(of: "\\[([^\\]]+)\\]\\([^)]+\\)", with: "$1", options: .regularExpression)
+
+        return cleaned
     }
 
     @ViewBuilder
