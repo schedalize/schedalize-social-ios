@@ -58,6 +58,73 @@ class ApiClient {
         try await delete(endpoint: "/api/v1/posts/scheduled/\(postId)", requiresAuth: true)
     }
 
+    // MARK: - Quality Evaluation
+    func evaluateQuality(content: String, platform: String, postType: String? = nil, context: String? = nil) async throws -> QualityEvaluationResponse {
+        let request = QualityEvaluateRequest(content: content, platform: platform, post_type: postType, context: context)
+        return try await post(endpoint: "/api/v1/quality/evaluate", body: request, requiresAuth: true)
+    }
+
+    func quickQualityCheck(content: String, platform: String) async throws -> QuickCheckResponse {
+        let request = QuickCheckRequest(content: content, platform: platform)
+        return try await post(endpoint: "/api/v1/quality/quick-check", body: request, requiresAuth: true)
+    }
+
+    func getQualityHistory(limit: Int = 20, offset: Int = 0) async throws -> QualityHistoryResponse {
+        return try await get(endpoint: "/api/v1/quality/history?limit=\(limit)&offset=\(offset)", requiresAuth: true)
+    }
+
+    // MARK: - Prompts
+    func getPrompts() async throws -> PromptsResponse {
+        return try await get(endpoint: "/api/v1/posts/prompts", requiresAuth: true)
+    }
+
+    func generateHumanPost(topic: String, platform: String, mood: String, includeEmojis: Bool = true, promptId: String? = nil) async throws -> GenerateHumanPostResponse {
+        let request = GenerateHumanPostRequest(topic: topic, platform: platform, mood: mood, include_emojis: includeEmojis, prompt_id: promptId)
+        return try await post(endpoint: "/api/v1/posts/generate-human", body: request, requiresAuth: true)
+    }
+
+    // MARK: - Calendar Tasks
+    func getTodayTasks() async throws -> TodayTasksResponse {
+        return try await get(endpoint: "/api/v1/calendar/tasks/today", requiresAuth: true)
+    }
+
+    func getCalendarTasks(startDate: String? = nil, endDate: String? = nil, includeCompleted: Bool = false) async throws -> CalendarTasksResponse {
+        var endpoint = "/api/v1/calendar/tasks?"
+        if let start = startDate { endpoint += "start_date=\(start)&" }
+        if let end = endDate { endpoint += "end_date=\(end)&" }
+        endpoint += "include_completed=\(includeCompleted)"
+        return try await get(endpoint: endpoint, requiresAuth: true)
+    }
+
+    func pushTasks(fromDate: String? = nil) async throws -> PushTasksResponse {
+        struct PushRequest: Codable {
+            let from_date: String?
+        }
+        let request = PushRequest(from_date: fromDate)
+        return try await post(endpoint: "/api/v1/calendar/push", body: request, requiresAuth: true)
+    }
+
+    func completeTask(taskId: String, generatedContent: String? = nil) async throws -> CalendarTask {
+        struct CompleteRequest: Codable {
+            let generated_content: String?
+        }
+        struct CompleteResponse: Codable {
+            let success: Bool
+            let task: CalendarTask
+        }
+        let request = CompleteRequest(generated_content: generatedContent)
+        let response: CompleteResponse = try await post(endpoint: "/api/v1/calendar/tasks/\(taskId)/complete", body: request, requiresAuth: true)
+        return response.task
+    }
+
+    func generateTaskContent(taskId: String, mood: String? = nil) async throws -> GenerateTaskContentResponse {
+        struct GenerateRequest: Codable {
+            let mood: String?
+        }
+        let request = GenerateRequest(mood: mood)
+        return try await post(endpoint: "/api/v1/calendar/tasks/\(taskId)/generate", body: request, requiresAuth: true)
+    }
+
     // MARK: - Generic Network Methods
     private func get<T: Decodable>(endpoint: String, requiresAuth: Bool = false) async throws -> T {
         guard let url = URL(string: baseURL + endpoint) else {

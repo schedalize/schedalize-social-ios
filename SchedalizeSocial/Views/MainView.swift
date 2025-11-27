@@ -38,6 +38,7 @@ struct MainView: View {
     ]
 
     @State private var templatesExpanded = false
+    @State private var showGeneratePost = false
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -212,6 +213,16 @@ struct MainView: View {
                     .padding(.bottom, 20)
                 }
                 .background(Color(red: 0.96, green: 0.97, blue: 0.98))
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: { showGeneratePost = true }) {
+                            Label("New Post", systemImage: "plus.circle.fill")
+                        }
+                    }
+                }
+                .sheet(isPresented: $showGeneratePost) {
+                    GeneratePostView()
+                }
             }
             .tabItem {
                 Label("Replies", systemImage: "bubble.left.and.bubble.right.fill")
@@ -225,12 +236,19 @@ struct MainView: View {
                 }
                 .tag(1)
 
-            // Posts Tab
+            // Calendar Tab (30-day tasks)
+            CalendarView()
+                .tabItem {
+                    Label("Calendar", systemImage: "calendar.badge.clock")
+                }
+                .tag(2)
+
+            // Posts Tab (scheduled posts)
             PostsView()
                 .tabItem {
                     Label("Posts", systemImage: "calendar")
                 }
-                .tag(2)
+                .tag(3)
         }
         .accentColor(Color(red: 0.29, green: 0.42, blue: 0.98))
         .alert("Error", isPresented: $showError) {
