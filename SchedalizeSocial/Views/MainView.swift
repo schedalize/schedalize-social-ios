@@ -45,20 +45,6 @@ struct MainView: View {
             NavigationView {
                 ScrollView {
                     VStack(spacing: 20) {
-                        // Header
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Generate Reply")
-                                .font(.system(size: 22, weight: .bold))
-                                .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
-
-                            Text("Create AI-powered responses")
-                                .font(.system(size: 13))
-                                .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 20)
-                        .padding(.top, 16)
-
                         // Quick Templates Section
                         VStack(alignment: .leading, spacing: 8) {
                             Button(action: { withAnimation { templatesExpanded.toggle() } }) {
@@ -95,6 +81,7 @@ struct MainView: View {
                             }
                         }
                         .padding(.horizontal, 20)
+                        .padding(.top, 16)
 
                         // Message Input
                         VStack(alignment: .leading, spacing: 8) {
