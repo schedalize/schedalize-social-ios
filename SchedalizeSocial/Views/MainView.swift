@@ -44,7 +44,7 @@ struct MainView: View {
             // Reply Generation Tab
             NavigationView {
                 ScrollView {
-                    VStack(spacing: 20) {
+                    VStack(alignment: .leading, spacing: 20) {
                         // Quick Templates Section
                         VStack(alignment: .leading, spacing: 8) {
                             Button(action: { withAnimation { templatesExpanded.toggle() } }) {
@@ -201,6 +201,7 @@ struct MainView: View {
                             .padding(.top, 20)
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .top)
                     .padding(.bottom, 20)
                 }
                 .background(Color(red: 0.96, green: 0.97, blue: 0.98))

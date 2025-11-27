@@ -18,7 +18,7 @@ struct GeneratePostView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
 
-    let platforms = ["instagram", "twitter", "tiktok", "linkedin"]
+    let platforms = ["instagram", "x", "tiktok", "linkedin"]
 
     var body: some View {
         NavigationView {
@@ -122,7 +122,7 @@ struct GeneratePostView: View {
         switch platform {
         case "instagram":
             Image(systemName: "camera")
-        case "twitter":
+        case "x", "twitter":
             Image(systemName: "at")
         case "tiktok":
             Image(systemName: "play.rectangle")

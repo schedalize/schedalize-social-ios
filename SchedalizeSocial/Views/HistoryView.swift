@@ -226,7 +226,7 @@ struct UnifiedHistoryCard: View {
     @State private var showCopied = false
     @State private var selectedPostedPlatform: String? = nil
 
-    private let platforms = ["instagram", "tiktok", "twitter", "email"]
+    private let platforms = ["instagram", "tiktok", "x", "email"]
 
     private var isPosted: Bool {
         selectedPostedPlatform != nil || item.postedAt != nil
@@ -412,7 +412,7 @@ struct UnifiedHistoryCard: View {
         case "email":
             Image(systemName: "envelope.fill")
                 .font(.system(size: 11))
-        case "twitter":
+        case "x", "twitter":
             Image(systemName: "at")
                 .font(.system(size: 11))
         default:
@@ -426,7 +426,7 @@ struct UnifiedHistoryCard: View {
         case "instagram": return "camera"
         case "tiktok": return "play.rectangle"
         case "email": return "envelope"
-        case "twitter": return "at"
+        case "x", "twitter": return "at"
         default: return "globe"
         }
     }

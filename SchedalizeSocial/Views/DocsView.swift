@@ -67,8 +67,7 @@ struct DocsView: View {
                     }
                 }
             }
-            .navigationTitle("Docs")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarHidden(true)
             .refreshable {
                 await loadDocs()
             }

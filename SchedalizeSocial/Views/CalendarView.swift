@@ -533,7 +533,7 @@ struct TaskDetailSheet: View {
     private func platformIcon(_ platform: String) -> String {
         switch platform.lowercased() {
         case "instagram": return "camera.fill"
-        case "twitter": return "at"
+        case "x", "twitter": return "at"
         case "tiktok": return "play.rectangle.fill"
         case "linkedin": return "briefcase.fill"
         default: return "globe"
@@ -543,7 +543,7 @@ struct TaskDetailSheet: View {
     private func platformColor(_ platform: String) -> Color {
         switch platform.lowercased() {
         case "instagram": return .pink
-        case "twitter": return .blue
+        case "x", "twitter": return .blue
         case "tiktok": return .primary
         case "linkedin": return .blue
         default: return .secondary
