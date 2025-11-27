@@ -328,15 +328,10 @@ struct AddPostView: View {
     @State private var isGenerating = false
     @State private var errorMessage = ""
     @State private var showError = false
-    @State private var prompts: [Prompt] = []
-    @State private var selectedPrompt: Prompt?
-    @State private var selectedMood = "focused"
     @State private var useEmojis = true
     @State private var showCopied = false
-    @State private var showAdvancedSettings = false
 
     let platforms = ["Instagram", "TikTok", "Email"]
-    let moods = ["excited", "tired", "focused", "grateful", "frustrated"]
     let initialDate: Date
     let onSave: () -> Void
 
@@ -364,17 +359,6 @@ struct AddPostView: View {
         }
 
         _scheduledDate = State(initialValue: finalDate)
-    }
-
-    private var currentSettingsSummary: String {
-        var parts: [String] = []
-        if let prompt = selectedPrompt {
-            let shortName = prompt.name.replacingOccurrences(of: "Human-Like ", with: "").replacingOccurrences(of: " v1.0", with: "")
-            parts.append(shortName)
-        }
-        parts.append(selectedMood.capitalized)
-        if useEmojis { parts.append("Emojis") }
-        return parts.joined(separator: " · ")
     }
 
     var body: some View {
@@ -425,118 +409,16 @@ struct AddPostView: View {
                         }
                     }
 
-                    // Advanced Settings (Collapsible)
-                    VStack(spacing: 0) {
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.25)) {
-                                showAdvancedSettings.toggle()
-                            }
-                        }) {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Generation Settings")
-                                        .font(.system(size: 15, weight: .medium))
-                                        .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
-                                    Text(currentSettingsSummary)
-                                        .font(.system(size: 12))
-                                        .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
-                                }
-                                Spacer()
-                                Image(systemName: showAdvancedSettings ? "chevron.up" : "chevron.down")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
-                            }
-                            .padding(16)
-                            .background(Color.white)
-                            .cornerRadius(showAdvancedSettings ? 12 : 12)
-                        }
-                        .buttonStyle(.plain)
-
-                        if showAdvancedSettings {
-                            VStack(alignment: .leading, spacing: 16) {
-                                // Mood Picker
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Mood")
-                                        .font(.system(size: 13, weight: .medium))
-                                        .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
-                                    ScrollView(.horizontal, showsIndicators: false) {
-                                        HStack(spacing: 8) {
-                                            ForEach(moods, id: \.self) { mood in
-                                                Button(action: { selectedMood = mood }) {
-                                                    Text(mood.capitalized)
-                                                        .font(.system(size: 13, weight: .medium))
-                                                        .padding(.horizontal, 14)
-                                                        .padding(.vertical, 8)
-                                                        .background(selectedMood == mood ? Color(red: 0.6, green: 0.2, blue: 0.8) : Color(.systemGray6))
-                                                        .foregroundColor(selectedMood == mood ? .white : Color(red: 0.13, green: 0.16, blue: 0.24))
-                                                        .cornerRadius(20)
-                                                }
-                                                .buttonStyle(.plain)
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Prompt Style Picker
-                                if !prompts.isEmpty {
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        Text("Voice")
-                                            .font(.system(size: 13, weight: .medium))
-                                            .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
-                                        ScrollView(.horizontal, showsIndicators: false) {
-                                            HStack(spacing: 8) {
-                                                ForEach(prompts) { prompt in
-                                                    let isSelected = selectedPrompt?.prompt_id == prompt.prompt_id
-                                                    let shortName = prompt.name
-                                                        .replacingOccurrences(of: "Human-Like ", with: "")
-                                                        .replacingOccurrences(of: " v1.0", with: "")
-                                                    Button(action: { selectedPrompt = prompt }) {
-                                                        HStack(spacing: 6) {
-                                                            Text(shortName)
-                                                                .font(.system(size: 13, weight: .medium))
-                                                            if let score = prompt.test_score {
-                                                                Text(String(format: "%.0f%%", score))
-                                                                    .font(.system(size: 11))
-                                                                    .padding(.horizontal, 6)
-                                                                    .padding(.vertical, 2)
-                                                                    .background(isSelected ? Color.white.opacity(0.2) : Color(.systemGray5))
-                                                                    .cornerRadius(8)
-                                                            }
-                                                        }
-                                                        .padding(.horizontal, 14)
-                                                        .padding(.vertical, 8)
-                                                        .background(isSelected ? Color(red: 0.29, green: 0.42, blue: 0.98) : Color(.systemGray6))
-                                                        .foregroundColor(isSelected ? .white : Color(red: 0.13, green: 0.16, blue: 0.24))
-                                                        .cornerRadius(20)
-                                                    }
-                                                    .buttonStyle(.plain)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Emoji Toggle
-                                HStack {
-                                    Text("Include Emojis")
-                                        .font(.system(size: 13, weight: .medium))
-                                        .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
-                                    Spacer()
-                                    Toggle("", isOn: $useEmojis)
-                                        .labelsHidden()
-                                        .tint(Color(red: 0.6, green: 0.2, blue: 0.8))
-                                }
-                            }
-                            .padding(16)
-                            .padding(.top, 0)
-                            .background(Color.white)
-                            .cornerRadius(12)
-                            .offset(y: -8)
-                        }
+                    // Emoji Toggle
+                    HStack {
+                        Text("Include Emojis")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
+                        Spacer()
+                        Toggle("", isOn: $useEmojis)
+                            .labelsHidden()
+                            .tint(Color(red: 0.6, green: 0.2, blue: 0.8))
                     }
-                    .background(Color.white)
-                    .cornerRadius(12)
-                    .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
 
                     // Generate Button
                     Button(action: generateContent) {
@@ -657,9 +539,6 @@ struct AddPostView: View {
             } message: {
                 Text(errorMessage)
             }
-            .task {
-                await loadPrompts()
-            }
         }
     }
 
@@ -681,21 +560,6 @@ struct AddPostView: View {
         }
     }
 
-    private func loadPrompts() async {
-        do {
-            let response = try await ApiClient.shared.getPrompts()
-            await MainActor.run {
-                prompts = response.prompts
-                // Default to "Human-Like Sarah v1.0" or first default prompt
-                selectedPrompt = prompts.first(where: { $0.name.contains("Sarah") })
-                    ?? prompts.first(where: { $0.is_default })
-                    ?? prompts.first
-            }
-        } catch {
-            // Silently fail - prompts are optional
-        }
-    }
-
     private func generateContent() {
         isGenerating = true
         Task {
@@ -703,9 +567,7 @@ struct AddPostView: View {
                 let result = try await ApiClient.shared.generateHumanPost(
                     topic: topic,
                     platform: platform.lowercased(),
-                    mood: selectedMood,
-                    includeEmojis: useEmojis,
-                    promptId: selectedPrompt?.prompt_id
+                    includeEmojis: useEmojis
                 )
                 await MainActor.run {
                     generatedContent = result.content
