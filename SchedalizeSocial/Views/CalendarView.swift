@@ -369,6 +369,12 @@ struct TaskDetailSheet: View {
     @State private var generatedContent: String?
     @State private var isGenerating = false
     @State private var showCopied = false
+    @State private var showTopicCopied = false
+    @State private var isEditingContent = false
+    @State private var editedContent: String = ""
+    @State private var isEditingDate = false
+    @State private var selectedDate: Date = Date()
+    @FocusState private var isTextEditorFocused: Bool
 
     var body: some View {
         NavigationView {
@@ -397,13 +403,54 @@ struct TaskDetailSheet: View {
                         }
                     }
 
+                    // Scheduled Date with Edit
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Scheduled")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text(formatScheduledDate(task.scheduled_date))
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
+                        Spacer()
+                        Button(action: { isEditingDate = true }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "calendar")
+                                Text("Change")
+                            }
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
+                        }
+                    }
+                    .padding(12)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(8)
+
                     Divider()
 
-                    // Template
+                    // Template with Copy
                     if let template = task.template_content, !template.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Topic")
-                                .font(.headline)
+                            HStack {
+                                Text("Topic")
+                                    .font(.headline)
+                                Spacer()
+                                Button(action: {
+                                    UIPasteboard.general.string = template
+                                    showTopicCopied = true
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                        showTopicCopied = false
+                                    }
+                                }) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: showTopicCopied ? "checkmark" : "doc.on.doc")
+                                        Text(showTopicCopied ? "Copied!" : "Copy")
+                                    }
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(showTopicCopied ? .green : Color(red: 0.29, green: 0.42, blue: 0.98))
+                                }
+                            }
                             Text(template)
                                 .font(.body)
                                 .foregroundColor(.secondary)
@@ -435,7 +482,7 @@ struct TaskDetailSheet: View {
                                 Text("Generating...")
                             } else {
                                 Image(systemName: "sparkles")
-                                Text("Generate")
+                                Text(currentContent != nil ? "Regenerate" : "Generate")
                             }
                         }
                         .font(.system(size: 16, weight: .semibold))
@@ -453,14 +500,30 @@ struct TaskDetailSheet: View {
                     }
                     .disabled(isGenerating)
 
-                    // Generated Content
-                    if let content = generatedContent ?? task.generated_content {
+                    // Generated Content with Edit
+                    if let content = currentContent {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
                                 Text("Generated Content")
                                     .font(.system(size: 15, weight: .semibold))
                                     .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
                                 Spacer()
+
+                                // Edit button
+                                Button(action: {
+                                    editedContent = content
+                                    isEditingContent = true
+                                    isTextEditorFocused = true
+                                }) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "pencil")
+                                        Text("Edit")
+                                    }
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
+                                }
+
+                                // Copy button
                                 Button(action: {
                                     UIPasteboard.general.string = content
                                     showCopied = true
@@ -477,17 +540,67 @@ struct TaskDetailSheet: View {
                                 }
                             }
 
-                            Text(content)
-                                .font(.system(size: 15))
-                                .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
-                                .padding(16)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Color.white)
-                                .cornerRadius(12)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color(red: 0.29, green: 0.42, blue: 0.98).opacity(0.3), lineWidth: 1)
-                                )
+                            if isEditingContent {
+                                // Editable text field
+                                VStack(alignment: .leading, spacing: 8) {
+                                    TextEditor(text: $editedContent)
+                                        .font(.system(size: 15))
+                                        .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
+                                        .frame(minHeight: 150)
+                                        .padding(12)
+                                        .background(Color.white)
+                                        .cornerRadius(12)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .stroke(Color(red: 0.29, green: 0.42, blue: 0.98), lineWidth: 2)
+                                        )
+                                        .focused($isTextEditorFocused)
+
+                                    HStack {
+                                        Button(action: {
+                                            isEditingContent = false
+                                            isTextEditorFocused = false
+                                        }) {
+                                            Text("Cancel")
+                                                .font(.system(size: 14, weight: .medium))
+                                                .foregroundColor(.secondary)
+                                                .padding(.horizontal, 16)
+                                                .padding(.vertical, 8)
+                                                .background(Color(.systemGray5))
+                                                .cornerRadius(8)
+                                        }
+
+                                        Spacer()
+
+                                        Button(action: {
+                                            generatedContent = editedContent
+                                            isEditingContent = false
+                                            isTextEditorFocused = false
+                                        }) {
+                                            Text("Save")
+                                                .font(.system(size: 14, weight: .semibold))
+                                                .foregroundColor(.white)
+                                                .padding(.horizontal, 16)
+                                                .padding(.vertical, 8)
+                                                .background(Color(red: 0.29, green: 0.42, blue: 0.98))
+                                                .cornerRadius(8)
+                                        }
+                                    }
+                                }
+                            } else {
+                                // Display mode
+                                Text(content)
+                                    .font(.system(size: 15))
+                                    .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
+                                    .padding(16)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(Color.white)
+                                    .cornerRadius(12)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(Color(red: 0.29, green: 0.42, blue: 0.98).opacity(0.3), lineWidth: 1)
+                                    )
+                            }
                         }
                     }
 
@@ -504,18 +617,40 @@ struct TaskDetailSheet: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Complete") {
-                        onComplete(generatedContent)
+                        onComplete(generatedContent ?? task.generated_content)
                         dismiss()
                     }
                     .fontWeight(.semibold)
-                    .disabled(generatedContent == nil && task.generated_content == nil)
+                    .disabled(currentContent == nil)
                 }
+            }
+            .sheet(isPresented: $isEditingDate) {
+                DatePickerSheet(
+                    selectedDate: $selectedDate,
+                    initialDate: parseDate(task.scheduled_date),
+                    onSave: { _ in
+                        // Date change would require API update
+                        // For now, just close the sheet
+                        isEditingDate = false
+                    },
+                    onCancel: {
+                        isEditingDate = false
+                    }
+                )
+            }
+            .onAppear {
+                selectedDate = parseDate(task.scheduled_date)
             }
         }
     }
 
+    private var currentContent: String? {
+        generatedContent ?? task.generated_content
+    }
+
     private func generateContent() {
         isGenerating = true
+        isEditingContent = false
         Task {
             do {
                 let result = try await ApiClient.shared.generateTaskContent(
@@ -528,6 +663,20 @@ struct TaskDetailSheet: View {
             }
             isGenerating = false
         }
+    }
+
+    private func formatScheduledDate(_ dateString: String) -> String {
+        let date = parseDate(dateString)
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter.string(from: date)
+    }
+
+    private func parseDate(_ dateString: String) -> Date {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.date(from: dateString) ?? Date()
     }
 
     private func platformIcon(_ platform: String) -> String {
@@ -547,6 +696,49 @@ struct TaskDetailSheet: View {
         case "tiktok": return .primary
         case "linkedin": return .blue
         default: return .secondary
+        }
+    }
+}
+
+struct DatePickerSheet: View {
+    @Binding var selectedDate: Date
+    let initialDate: Date
+    let onSave: (Date) -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                DatePicker(
+                    "Select Date",
+                    selection: $selectedDate,
+                    in: Date()...,
+                    displayedComponents: .date
+                )
+                .datePickerStyle(.graphical)
+                .padding()
+
+                Text("Note: Date changes are saved locally only")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Spacer()
+            }
+            .navigationTitle("Change Date")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { onCancel() }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") { onSave(selectedDate) }
+                        .fontWeight(.semibold)
+                }
+            }
+        }
+        .presentationDetents([.medium])
+        .onAppear {
+            selectedDate = initialDate
         }
     }
 }

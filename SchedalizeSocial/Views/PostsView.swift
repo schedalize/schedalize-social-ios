@@ -226,6 +226,23 @@ struct PostsView: View {
 struct PostCard: View {
     let post: ScheduledPost
     let onDelete: () -> Void
+    let onUpdate: ((String, Date) -> Void)?
+
+    @State private var showCopied = false
+    @State private var showEditSheet = false
+    @State private var postedPlatform: String? = nil
+
+    private let platforms = ["instagram", "tiktok", "x", "linkedin"]
+
+    private var isPosted: Bool {
+        postedPlatform != nil
+    }
+
+    init(post: ScheduledPost, onDelete: @escaping () -> Void, onUpdate: ((String, Date) -> Void)? = nil) {
+        self.post = post
+        self.onDelete = onDelete
+        self.onUpdate = onUpdate
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -252,10 +269,27 @@ struct PostCard: View {
 
                 Spacer()
 
-                Button(action: onDelete) {
-                    Image(systemName: "trash")
-                        .font(.system(size: 14))
-                        .foregroundColor(.red)
+                // Action buttons
+                HStack(spacing: 12) {
+                    // Copy button
+                    Button(action: {
+                        UIPasteboard.general.string = post.content
+                        showCopied = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                            showCopied = false
+                        }
+                    }) {
+                        Image(systemName: showCopied ? "checkmark" : "doc.on.doc")
+                            .font(.system(size: 14))
+                            .foregroundColor(showCopied ? .green : Color(red: 0.29, green: 0.42, blue: 0.98))
+                    }
+
+                    // Edit button
+                    Button(action: { showEditSheet = true }) {
+                        Image(systemName: "square.and.pencil")
+                            .font(.system(size: 14))
+                            .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
+                    }
                 }
             }
 
@@ -273,11 +307,92 @@ struct PostCard: View {
                     .font(.system(size: 12))
             }
             .foregroundColor(Color(red: 0.42, green: 0.47, blue: 0.55))
+
+            // Posted badge
+            if isPosted, let platform = postedPlatform {
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 11))
+                    Text("Posted on \(platform.capitalized)")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .foregroundColor(.green)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color.green.opacity(0.1))
+                .cornerRadius(6)
+            }
+
+            Divider()
+
+            // Mark as Posted menu
+            HStack {
+                Spacer()
+                Menu {
+                    Section("Mark as Posted") {
+                        ForEach(platforms, id: \.self) { platform in
+                            Button(action: {
+                                postedPlatform = platform
+                            }) {
+                                HStack {
+                                    postedMenuIcon(platform)
+                                    Text(platform.capitalized)
+                                    Spacer()
+                                    if postedPlatform == platform {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Divider()
+
+                    Button(role: .destructive, action: {
+                        postedPlatform = nil
+                    }) {
+                        Label("Not Posted", systemImage: "xmark.circle")
+                    }
+                } label: {
+                    Label(
+                        isPosted ? "Posted" : "Mark Posted",
+                        systemImage: isPosted ? "checkmark.circle.fill" : "checkmark.circle"
+                    )
+                    .font(.system(size: 12, weight: .medium))
+                }
+                .buttonStyle(.bordered)
+                .tint(isPosted ? .green : Color(red: 0.42, green: 0.47, blue: 0.55))
+            }
         }
         .padding(16)
         .background(Color.white)
         .cornerRadius(12)
         .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+        .sheet(isPresented: $showEditSheet) {
+            EditPostSheet(
+                post: post,
+                onSave: { content, date in
+                    onUpdate?(content, date)
+                },
+                onDelete: onDelete
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func postedMenuIcon(_ platform: String) -> some View {
+        switch platform.lowercased() {
+        case "instagram":
+            Image(systemName: "camera")
+        case "tiktok":
+            Image(systemName: "play.rectangle")
+        case "x", "twitter":
+            Image(systemName: "at")
+        case "linkedin":
+            Image(systemName: "briefcase")
+        default:
+            Image(systemName: "globe")
+        }
     }
 
     @ViewBuilder
@@ -804,6 +919,172 @@ struct CalendarDayView: View {
             return Color(red: 0.29, green: 0.42, blue: 0.98)
         } else {
             return Color(red: 0.13, green: 0.16, blue: 0.24)
+        }
+    }
+}
+
+// MARK: - Edit Post Sheet
+
+struct EditPostSheet: View {
+    let post: ScheduledPost
+    let onSave: (String, Date) -> Void
+    let onDelete: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var editedContent: String
+    @State private var scheduledDate: Date
+    @State private var showCopied = false
+    @State private var showDeleteConfirm = false
+    @FocusState private var isTextEditorFocused: Bool
+
+    init(post: ScheduledPost, onSave: @escaping (String, Date) -> Void, onDelete: @escaping () -> Void = {}) {
+        self.post = post
+        self.onSave = onSave
+        self.onDelete = onDelete
+        _editedContent = State(initialValue: post.content)
+
+        // Parse the scheduled date
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let date = formatter.date(from: post.scheduled_for)
+            ?? ISO8601DateFormatter().date(from: post.scheduled_for)
+            ?? Date()
+        _scheduledDate = State(initialValue: date)
+    }
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // Platform badge
+                    HStack(spacing: 6) {
+                        platformIcon(post.platform)
+                        Text(post.platform.capitalized)
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundColor(Color(red: 0.29, green: 0.42, blue: 0.98))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color(red: 0.29, green: 0.42, blue: 0.98).opacity(0.1))
+                    .cornerRadius(6)
+
+                    // Content Editor
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Content")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
+                            Spacer()
+                            Button(action: {
+                                UIPasteboard.general.string = editedContent
+                                showCopied = true
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                    showCopied = false
+                                }
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: showCopied ? "checkmark" : "doc.on.doc")
+                                    Text(showCopied ? "Copied!" : "Copy")
+                                }
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(showCopied ? .green : Color(red: 0.29, green: 0.42, blue: 0.98))
+                            }
+                        }
+
+                        TextEditor(text: $editedContent)
+                            .font(.system(size: 15))
+                            .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
+                            .frame(minHeight: 150)
+                            .padding(12)
+                            .background(Color.white)
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color(red: 0.29, green: 0.42, blue: 0.98).opacity(0.3), lineWidth: 1)
+                            )
+                            .focused($isTextEditorFocused)
+                    }
+
+                    // Date Picker
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Scheduled Date & Time")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(Color(red: 0.13, green: 0.16, blue: 0.24))
+
+                        DatePicker(
+                            "",
+                            selection: $scheduledDate,
+                            in: Date()...,
+                            displayedComponents: [.date, .hourAndMinute]
+                        )
+                        .datePickerStyle(.graphical)
+                        .padding(12)
+                        .background(Color.white)
+                        .cornerRadius(12)
+                    }
+
+                    Text("Note: Changes are saved locally. API update coming soon.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    // Delete Button
+                    Button(action: { showDeleteConfirm = true }) {
+                        HStack {
+                            Image(systemName: "trash")
+                            Text("Delete Post")
+                        }
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(Color.red)
+                        .cornerRadius(12)
+                    }
+
+                    Spacer(minLength: 40)
+                }
+                .padding(20)
+            }
+            .background(Color(red: 0.96, green: 0.97, blue: 0.98))
+            .navigationTitle("Edit Post")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") {
+                        onSave(editedContent, scheduledDate)
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                    .disabled(editedContent.isEmpty)
+                }
+            }
+            .alert("Delete Post?", isPresented: $showDeleteConfirm) {
+                Button("Cancel", role: .cancel) {}
+                Button("Delete", role: .destructive) {
+                    onDelete()
+                    dismiss()
+                }
+            } message: {
+                Text("This action cannot be undone.")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func platformIcon(_ platform: String) -> some View {
+        switch platform.lowercased() {
+        case "instagram":
+            InstagramIconView(color: Color(red: 0.29, green: 0.42, blue: 0.98), size: 12)
+        case "tiktok":
+            TikTokIconView(color: Color(red: 0.29, green: 0.42, blue: 0.98), size: 12)
+        case "x", "twitter":
+            XIconView(color: Color(red: 0.29, green: 0.42, blue: 0.98), size: 12)
+        default:
+            Image(systemName: "globe")
+                .font(.system(size: 12))
         }
     }
 }
